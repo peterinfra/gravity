@@ -61,15 +61,14 @@ func (c iscsiChecker) Check(ctx context.Context, reporter health.Reporter) {
 		reason := "failed to query systemd units"
 		reporter.Add(NewProbeFromErr(c.Name(), reason, trace.Wrap(err)))
 	}
-
-	var conditions []serviceStatus
+	
 	for _, unit := range units {
-		fmt.Println("TEMP unit.Name=%v", unit.Name)
+		fmt.Println("2TEMP unit.Name=%v", unit.Name)
 		if strings.Contains(unit.Name, "iscsi") {
-			conditions = append(conditions, serviceStatus{
-				name:   unit.Name,
-				status: pb.Probe_Failed,
-				err:    trace.Errorf("%s", "iscsi should not be enabled on the host"),
+			reporter.Add(&pb.Probe{
+				Checker: iscsiCheckerID,
+				Detail:  fmt.Sprintf("iscsi conflicting program running: %v", unit.Name ),
+				Status:  pb.Probe_Failed,
 			})
 		}
 	}
