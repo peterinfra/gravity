@@ -19,8 +19,6 @@ package monitoring
 import (
 	"context"
 	"fmt"
-	"strings"
-
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 
@@ -42,7 +40,7 @@ type iscsiChecker struct{}
 // Name returns this checker name
 // Implements health.Checker
 func (c iscsiChecker) Name() string {
-	return awsHasProfileCheckerID
+	return iscsiCheckerID
 }
 
 // Check will check the metadata API to see if an IAM profile is assigned to the node
@@ -54,44 +52,21 @@ func (c iscsiChecker) Check(ctx context.Context, reporter health.Reporter) {
 		reporter.Add(NewProbeFromErr(c.Name(), reason, trace.Wrap(err)))
 	}
 	defer conn.Close()
-
-	var units []dbus.UnitStatus
-	units, err = conn.ListUnits()
+	
+	units, err := conn.ListUnitsByPatterns([]string{"enabled"}, []string{"iscsid"})
 	if err != nil {
 		reason := "failed to query systemd units"
 		reporter.Add(NewProbeFromErr(c.Name(), reason, trace.Wrap(err)))
 	}
-	
+
 	for _, unit := range units {
-		fmt.Println("2TEMP unit.Name=%v", unit.Name)
-		if strings.Contains(unit.Name, "iscsi") {
-			reporter.Add(&pb.Probe{
-				Checker: iscsiCheckerID,
-				Detail:  fmt.Sprintf("iscsi conflicting program running: %v", unit.Name ),
-				Status:  pb.Probe_Failed,
-			})
-		}
+		reporter.Add(&pb.Probe{
+			Checker: iscsiCheckerID,
+			Detail:  fmt.Sprintf("Found conflicting program: %v. Please disable the service and try again.", unit.Name),
+			Status:  pb.Probe_Failed,
+		})
 	}
-	
-/*
-	session, err := session.NewSession()
-	if err != nil {
-		reporter.Add(NewProbeFromErr(awsHasProfileCheckerID, "failed to create session", trace.Wrap(err)))
-		return
-	}
-	metadata := ec2metadata.New(session)
-
-	_, err = metadata.IAMInfo()
-	if err != nil {
-		reporter.Add(NewProbeFromErr(awsHasProfileCheckerID, "failed to determine node IAM profile", trace.Wrap(err)))
-		return
-	}
-	reporter.Add(NewSuccessProbe(awsHasProfileCheckerID))
-
- */
 }
-
-
 
 const (
 	iscsiCheckerID = "iscsi"
