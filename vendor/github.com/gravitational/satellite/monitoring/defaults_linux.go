@@ -64,6 +64,7 @@ func DefaultProcessChecker() health.Checker {
 		"kubelet",
 		"planet",
 		"teleport",
+		"iscsid",
 	}}
 }
 

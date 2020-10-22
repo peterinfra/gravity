@@ -831,6 +831,7 @@ func basicCheckers(options *validationpb.ValidateOptions) health.Checker {
 			monitoring.DefaultProcessChecker(),
 			defaultPortChecker(options),
 			monitoring.DefaultBootConfigParams(),
+			monitoring.NewISCSIChecker(),
 		},
 	)
 }
