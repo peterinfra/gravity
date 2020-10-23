@@ -69,8 +69,8 @@ func (c iscsiChecker) Check(ctx context.Context, reporter health.Reporter) {
 			if unit.LoadState != loadStateMasked || unit.ActiveState == "active" {
 				reporter.Add(&pb.Probe{
 					Checker: iscsiCheckerID,
-					Detail: fmt.Sprintf("Found conflicting program: %v. "+
-						"Please mask this service and try again (systemctl mask %v).", unit.Name, unit.Name),
+					Detail: fmt.Sprintf("Found conflicting systemd service: %v. "+
+						"Please stop, disable and mask this service and try again.", unit.Name),
 					Status: pb.Probe_Failed,
 				})
 				probeFailed = true
