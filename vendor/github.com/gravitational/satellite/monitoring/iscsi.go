@@ -19,6 +19,9 @@ package monitoring
 import (
 	"context"
 	"fmt"
+	"strings"
+	
+	
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 
@@ -53,18 +56,20 @@ func (c iscsiChecker) Check(ctx context.Context, reporter health.Reporter) {
 	}
 	defer conn.Close()
 	
-	units, err := conn.ListUnitsByPatterns([]string{"enabled"}, []string{"*iscsid*"})
+	units, err := conn.ListUnits()
 	if err != nil {
 		reason := "failed to query systemd units"
 		reporter.Add(NewProbeFromErr(c.Name(), reason, trace.Wrap(err)))
 	}
 
 	for _, unit := range units {
-		reporter.Add(&pb.Probe{
-			Checker: iscsiCheckerID,
-			Detail:  fmt.Sprintf("Found conflicting program: %v. Please disable the service and try again.", unit.Name),
-			Status:  pb.Probe_Failed,
-		})
+		if strings.Contains(unit.Name, "iscsid.service") || strings.Contains(unit.Name, "iscsid.socket") {
+			reporter.Add(&pb.Probe{
+				Checker: iscsiCheckerID,
+				Detail:  fmt.Sprintf("Found conflicting program: %v. Please disable the service and try again.", unit.Name),
+				Status:  pb.Probe_Failed,
+			})
+		}
 	}
 }
 
