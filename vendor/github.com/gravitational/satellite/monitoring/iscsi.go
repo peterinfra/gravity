@@ -21,13 +21,11 @@ import (
 	"fmt"
 	"strings"
 
-	
-	
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/coreos/go-systemd/v22/dbus"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/gravitational/trace"
 )
 
@@ -57,24 +55,55 @@ func (c iscsiChecker) Check(ctx context.Context, reporter health.Reporter) {
 		reporter.Add(NewProbeFromErr(c.Name(), reason, trace.Wrap(err)))
 	}
 	defer conn.Close()
-	
+
 	units, err := conn.ListUnits()
 	if err != nil {
 		reason := "failed to query systemd units"
 		reporter.Add(NewProbeFromErr(c.Name(), reason, trace.Wrap(err)))
 	}
 
+	probeFailed := false
 	for _, unit := range units {
 		if strings.Contains(unit.Name, "iscsid.service") || strings.Contains(unit.Name, "iscsid.socket") {
 			spew.Dump(unit)
-			reporter.Add(&pb.Probe{
-				Checker: iscsiCheckerID,
-				Detail:  fmt.Sprintf("Found conflicting program: %v. Please disable this service and try again.", unit.Name),
-				Status:  pb.Probe_Failed,
-			})
+			if unit.LoadState != loadStateMasked {
+				reporter.Add(&pb.Probe{
+					Checker: iscsiCheckerID,
+					Detail: fmt.Sprintf("Found conflicting program: %v. "+
+						"Please mask this service and try again (systemctl mask %v).", unit.Name, unit.Name),
+					Status: pb.Probe_Failed,
+				})
+				probeFailed = true
+			}
 		}
 	}
+
+	if !probeFailed {
+		reporter.Add(NewSuccessProbe(c.Name()))
+	}
 }
+
+/*
+var systemdIsServiceEnabledCmd = []string{"/bin/systemctl", "is-enabled"}
+
+// IsSystemRunning return the state of systemd
+func IsSystemdServiceEnabled() (bool, error) {
+	output, err := exec.Command(systemdIsServiceEnabledCmd[0], systemdIsServiceEnabledCmd[1:]...).CombinedOutput()
+	if err != nil && !isExitError(err) {
+		return SystemStatusUnknown, trace.Wrap(err)
+	}
+
+	var status SystemStatusType
+	switch string(bytes.TrimSpace(output)) {
+	case "enabled":
+		return true, nil
+	default:
+		status = SystemStatusUnknown
+	}
+	return status, nil
+}
+
+ */
 
 const (
 	iscsiCheckerID = "iscsi"
