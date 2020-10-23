@@ -20,11 +20,13 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
 	
 	
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/coreos/go-systemd/v22/dbus"
 	"github.com/gravitational/trace"
 )
@@ -64,9 +66,10 @@ func (c iscsiChecker) Check(ctx context.Context, reporter health.Reporter) {
 
 	for _, unit := range units {
 		if strings.Contains(unit.Name, "iscsid.service") || strings.Contains(unit.Name, "iscsid.socket") {
+			spew.Dump(unit)
 			reporter.Add(&pb.Probe{
 				Checker: iscsiCheckerID,
-				Detail:  fmt.Sprintf("Found conflicting program: %v. Please disable the service and try again.", unit.Name),
+				Detail:  fmt.Sprintf("Found conflicting program: %v. Please disable this service and try again.", unit.Name),
 				Status:  pb.Probe_Failed,
 			})
 		}
