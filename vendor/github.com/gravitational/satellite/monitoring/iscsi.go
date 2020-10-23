@@ -66,7 +66,7 @@ func (c iscsiChecker) Check(ctx context.Context, reporter health.Reporter) {
 	for _, unit := range units {
 		if strings.Contains(unit.Name, "iscsid.service") || strings.Contains(unit.Name, "iscsid.socket") {
 			spew.Dump(unit)
-			if unit.LoadState != loadStateMasked {
+			if unit.LoadState != loadStateMasked || unit.ActiveState == "active" {
 				reporter.Add(&pb.Probe{
 					Checker: iscsiCheckerID,
 					Detail: fmt.Sprintf("Found conflicting program: %v. "+
