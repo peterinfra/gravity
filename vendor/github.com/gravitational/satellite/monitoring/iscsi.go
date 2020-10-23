@@ -53,7 +53,7 @@ func (c iscsiChecker) Check(ctx context.Context, reporter health.Reporter) {
 	}
 	defer conn.Close()
 	
-	units, err := conn.ListUnitsByPatterns([]string{"enabled"}, []string{"iscsid"})
+	units, err := conn.ListUnitsByPatterns([]string{"enabled"}, []string{"*iscsid*"})
 	if err != nil {
 		reason := "failed to query systemd units"
 		reporter.Add(NewProbeFromErr(c.Name(), reason, trace.Wrap(err)))
