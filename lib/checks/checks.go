@@ -822,7 +822,6 @@ func currentServerTime(currentTime, heartbeatTime, serverTime time.Time) time.Ti
 }
 
 func basicCheckers(options *validationpb.ValidateOptions, openEBSEnabled bool) health.Checker {
-
 	checkers := []health.Checker{
 		monitoring.NewIPForwardChecker(),
 		monitoring.NewBridgeNetfilterChecker(),

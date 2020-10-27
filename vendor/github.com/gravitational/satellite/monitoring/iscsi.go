@@ -1,5 +1,5 @@
 /*
-Copyright 2017 Gravitational, Inc.
+Copyright 2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -23,31 +23,31 @@ import (
 
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
-
 	"github.com/coreos/go-systemd/v22/dbus"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gravitational/trace"
 )
 
-// NewAWSHasProfileChecker returns a new checker, that checks that the instance
-// has a node profile assigned to it.
-// TODO(knisbet): look into enhancing this to check the contents of the profile
-// for missing permissions. However, for now this exists just as a basic check
-// for instances that accidently lose their profile assignment.
+const (
+	iscsiCheckerID = "iscsi"
+)
+
+// NewISCSIChecker returns a new checker, that checks that the iscsid is not running on the host when
+// OpenEBS is enabled in the deployment manifest. This is needed because if iscsid is running on the host it
+// makes the iscsid in planet to fail.
 func NewISCSIChecker() health.Checker {
 	return &iscsiChecker{}
 }
 
 type iscsiChecker struct{}
 
-// Name returns this checker name
+// Name returns the name of this checker
 // Implements health.Checker
 func (c iscsiChecker) Name() string {
 	return iscsiCheckerID
 }
 
-// Check will check the metadata API to see if an IAM profile is assigned to the node
-// Implements health.Checker
+// Check will check the systemd unit data coming from dbus to verify that
+// there are no iscsid services present on the host.
 func (c iscsiChecker) Check(ctx context.Context, reporter health.Reporter) {
 	conn, err := dbus.New()
 	if err != nil {
@@ -65,7 +65,6 @@ func (c iscsiChecker) Check(ctx context.Context, reporter health.Reporter) {
 	probeFailed := false
 	for _, unit := range units {
 		if strings.Contains(unit.Name, "iscsid.service") || strings.Contains(unit.Name, "iscsid.socket") {
-			spew.Dump(unit)
 			if unit.LoadState != loadStateMasked || unit.ActiveState == "active" {
 				reporter.Add(&pb.Probe{
 					Checker: iscsiCheckerID,
@@ -82,7 +81,3 @@ func (c iscsiChecker) Check(ctx context.Context, reporter health.Reporter) {
 		reporter.Add(NewSuccessProbe(c.Name()))
 	}
 }
-
-const (
-	iscsiCheckerID = "iscsi"
-)

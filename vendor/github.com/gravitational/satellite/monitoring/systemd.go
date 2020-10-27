@@ -20,8 +20,6 @@ import (
 	"bytes"
 	"context"
 	"os/exec"
-	"fmt"
-	"strings"
 
 	"github.com/gravitational/satellite/agent/health"
 	pb "github.com/gravitational/satellite/agent/proto/agentpb"
@@ -99,21 +97,11 @@ func systemdStatus() ([]serviceStatus, error) {
 
 	var conditions []serviceStatus
 	for _, unit := range units {
-		fmt.Println("TEMP unit.Name=%v", unit.Name)
 		if unit.ActiveState == activeStateFailed || unit.LoadState == loadStateError {
 			conditions = append(conditions, serviceStatus{
 				name:   unit.Name,
 				status: pb.Probe_Failed,
 				err:    trace.Errorf("%s", unit.SubState),
-			})
-		}
-
-
-		if strings.Contains( unit.Name, "iscsi" )  {
-			conditions = append(conditions, serviceStatus{
-				name:   unit.Name,
-				status: pb.Probe_Failed,
-				err:    trace.Errorf("%s", "iscsi should not run on the host"),
 			})
 		}
 	}
