@@ -109,9 +109,9 @@ type ManifestValidator struct {
 
 // RunBasicChecks executes a set of additional health checks.
 // Returns list of failed health probes.
-func RunBasicChecks(ctx context.Context, options *validationpb.ValidateOptions) (failed []*agentpb.Probe) {
+func RunBasicChecks(ctx context.Context, req LocalChecksRequest) (failed []*agentpb.Probe) {
 	var reporter health.Probes
-	basicCheckers(options).Check(ctx, &reporter)
+	basicCheckers(req).Check(ctx, &reporter)
 
 	for _, p := range reporter {
 		if p.Status == agentpb.Probe_Failed {
@@ -206,7 +206,7 @@ func ValidateLocal(ctx context.Context, req LocalChecksRequest) (*LocalChecksRes
 		return nil, trace.Wrap(err)
 	}
 
-	failedProbes = append(failedProbes, RunBasicChecks(ctx, req.Options)...)
+	failedProbes = append(failedProbes, RunBasicChecks(ctx, req)...)
 	if len(failedProbes) == 0 {
 		return &LocalChecksResult{}, nil
 	}
@@ -821,19 +821,22 @@ func currentServerTime(currentTime, heartbeatTime, serverTime time.Time) time.Ti
 	return serverTime.Add(delta)
 }
 
-func basicCheckers(options *validationpb.ValidateOptions) health.Checker {
-	return monitoring.NewCompositeChecker(
-		"local",
-		[]health.Checker{
-			monitoring.NewIPForwardChecker(),
-			monitoring.NewBridgeNetfilterChecker(),
-			monitoring.NewMayDetachMountsChecker(),
-			monitoring.DefaultProcessChecker(),
-			defaultPortChecker(options),
-			monitoring.DefaultBootConfigParams(),
-			monitoring.NewISCSIChecker(),
-		},
-	)
+func basicCheckers(req LocalChecksRequest) health.Checker {
+
+	checkers := []health.Checker{
+		monitoring.NewIPForwardChecker(),
+		monitoring.NewBridgeNetfilterChecker(),
+		monitoring.NewMayDetachMountsChecker(),
+		monitoring.DefaultProcessChecker(req.Manifest.OpenEBSEnabled()),
+		defaultPortChecker(req.Options),
+		monitoring.DefaultBootConfigParams(),
+	}
+
+	if req.Manifest.OpenEBSEnabled() {
+		checkers = append(checkers, monitoring.NewISCSIChecker())
+	}
+
+	return monitoring.NewCompositeChecker("local", checkers)
 }
 
 func defaultPortChecker(options *validationpb.ValidateOptions) health.Checker {

@@ -83,28 +83,6 @@ func (c iscsiChecker) Check(ctx context.Context, reporter health.Reporter) {
 	}
 }
 
-/*
-var systemdIsServiceEnabledCmd = []string{"/bin/systemctl", "is-enabled"}
-
-// IsSystemRunning return the state of systemd
-func IsSystemdServiceEnabled() (bool, error) {
-	output, err := exec.Command(systemdIsServiceEnabledCmd[0], systemdIsServiceEnabledCmd[1:]...).CombinedOutput()
-	if err != nil && !isExitError(err) {
-		return SystemStatusUnknown, trace.Wrap(err)
-	}
-
-	var status SystemStatusType
-	switch string(bytes.TrimSpace(output)) {
-	case "enabled":
-		return true, nil
-	default:
-		status = SystemStatusUnknown
-	}
-	return status, nil
-}
-
- */
-
 const (
 	iscsiCheckerID = "iscsi"
 )
