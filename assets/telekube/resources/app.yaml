@@ -204,7 +204,7 @@ ingress:
     enabled: true
 storage:
   openebs:
-    enabled: true
+    enabled: false
 systemOptions:
   runtime:
     version: "0.0.0+latest"
