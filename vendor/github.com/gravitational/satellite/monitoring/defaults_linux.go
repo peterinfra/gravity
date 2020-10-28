@@ -51,7 +51,7 @@ func PreInstallPortChecker() health.Checker {
 }
 
 // DefaultProcessChecker returns checker which will ensure no conflicting program is running
-func DefaultProcessChecker(openEBSEnabled bool) health.Checker {
+func DefaultProcessChecker(checkISCSI bool) health.Checker {
 	
 	processes := []string{
 		"dockerd",
@@ -67,7 +67,7 @@ func DefaultProcessChecker(openEBSEnabled bool) health.Checker {
 		"teleport",
 	}
 	
-	if openEBSEnabled {
+	if checkISCSI {
 		processes = append(processes, "iscsid")
 	}
 	
@@ -76,7 +76,7 @@ func DefaultProcessChecker(openEBSEnabled bool) health.Checker {
 
 // BasicCheckers detects common problems preventing k8s cluster from
 // functioning properly
-func BasicCheckers(openEBSEnabled bool, checkers ...health.Checker) health.Checker {
+func BasicCheckers(checkISCSI bool, checkers ...health.Checker) health.Checker {
 	c := &compositeChecker{
 		name: "local",
 		checkers: []health.Checker{
@@ -87,7 +87,7 @@ func BasicCheckers(openEBSEnabled bool, checkers ...health.Checker) health.Check
 			NewWormholeWgForwardingChecker(),
 			NewBridgeNetfilterChecker(),
 			NewMayDetachMountsChecker(),
-			DefaultProcessChecker(openEBSEnabled),
+			DefaultProcessChecker(checkISCSI),
 			DefaultPortChecker(),
 			DefaultBootConfigParams(),
 			NewInotifyChecker(),
@@ -98,8 +98,8 @@ func BasicCheckers(openEBSEnabled bool, checkers ...health.Checker) health.Check
 }
 
 // PreInstallCheckers are designed to run on a node before installing telekube
-func PreInstallCheckers(openEBSEnabled bool) health.Checker {
-	return BasicCheckers(openEBSEnabled, PreInstallPortChecker())
+func PreInstallCheckers(checkISCSI bool) health.Checker {
+	return BasicCheckers(checkISCSI, PreInstallPortChecker())
 }
 
 // DefaultBootConfigParams returns standard kernel configs required for running kubernetes
