@@ -18,6 +18,7 @@ package opsservice
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 
 	"github.com/gravitational/gravity/lib/app"
@@ -599,17 +600,18 @@ Disabling OpenEBS integration for existing clusters is unsupported at the moment
 	//               a proper upgrade procedure should be implemented first:
 	//               https://github.com/openebs/openebs/tree/master/k8s/upgrades.
 	installed, err := s.app.Manifest.Dependencies.ByName(defaults.StorageAppName)
-	if err != nil {
+	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
 	update, err := updateManifest.Dependencies.ByName(defaults.StorageAppName)
-	if err != nil {
+	if err != nil && !trace.IsNotFound(err) {
 		return trace.Wrap(err)
 	}
 	// Technically, this error should never be seen by a user - it is mostly
 	// meant for us to make sure proper upgrade procedure is implemented before
 	// we release another version of storage-app.
 
+	fmt.Printf("!!! installed =%v, update=%v", installed, update)
 	if installed != nil && update != nil && installed.Version == update.Version {
 		return trace.BadParameter("Old and new version of OpenEBS are the same.")
 	}
