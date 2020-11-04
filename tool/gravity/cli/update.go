@@ -19,6 +19,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"io"
 	"time"
 
@@ -39,6 +40,7 @@ import (
 )
 
 func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironment, init updateInitializer) (*update.Updater, error) {
+	spew.Dump("newUpdater, init=", init)
 	teleportClient, err := localEnv.TeleportClient(ctx, constants.Localhost)
 	if err != nil {
 		return nil, trace.Wrap(err, "failed to create a teleport client")
@@ -59,6 +61,7 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	spew.Dump("newUpdater, operator=", operator)
 	err = init.validatePreconditions(localEnv, operator, *cluster)
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -67,6 +70,7 @@ func newUpdater(ctx context.Context, localEnv, updateEnv *localenv.LocalEnvironm
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
+	spew.Dump("newUpdater, key=", key)
 	logger := logrus.WithField("operation", key)
 	defer func() {
 		r := recover()
