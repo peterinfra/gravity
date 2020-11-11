@@ -1,5 +1,5 @@
 /*
-Copyright 2019 Gravitational, Inc.
+Copyright 2020 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,7 +17,10 @@ limitations under the License.
 package cluster
 
 import (
+	"bytes"
 	"fmt"
+	"github.com/gravitational/gravity/lib/utils"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -259,8 +262,8 @@ func (r phaseBuilder) config(nodes []storage.Server) *update.Phase {
 }
 
 // openEBS returns phase that creates OpenEBS configuration in the cluster.
-func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) *update.Phase {
-	phase := update.RootPhase(update.Phase{
+func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) (*update.Phase, error) {
+	root := update.RootPhase(update.Phase{
 		ID:          "openebs",
 		Executor:    openebs,
 		Description: "Create OpenEBS configuration",
@@ -268,7 +271,58 @@ func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) *update.Phase {
 			ExecServer: &leadMaster.Server,
 		},
 	})
-	return &phase
+
+	var out bytes.Buffer
+
+	// Upgrade pools
+	// cstor-pool-y7ru-dcfb9b955-lqdtd                                   3/3     Running     3          144m   app=cstor-pool,openebs.io/cstor-pool=cstor-pool-y7ru,openebs.io/storage-pool-claim=cstor-pool,openebs.io/version=2.2.0,pod-template-hash=dcfb9b955
+	// TODO use kubectl.Command("get","pods","--field-selector","status.phase=Running","--selector=app","cstor-volAndVer-manager,openebs\.io/storage-class=openebs-cstor","-n","openebs","-o","jsonpath='{.items[*].metadata.labels.openebs\.io/persistent-volAndVer}{" "}{.items[*].metadata.labels.openebs\.io/version}'")
+	if err := utils.Exec(exec.Command("/bin/bash", "-c", "kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-pool  -nopenebs -o  jsonpath='{.items[*].metadata.labels.openebs\\.io/storage-pool-claim}{\" \"}{.items[*].metadata.labels.openebs\\.io/version}'"), &out); err != nil {
+		//	p.Warnf("Failed exec command. Got output %v:", out.String())
+		return nil, trace.Wrap(err)
+	}
+	//commandOutput := "cstor-pool 1.7.0"
+	commandOutput := out.String()
+	poolsAndVersion := strings.Split(commandOutput, "\n")
+	for _, poolAndVer := range poolsAndVersion {
+		//vav := strings.Split(volAndVer," ")
+		upgradeVolume := update.Phase{
+			ID:          root.ChildLiteral("upgrade"),
+			Description: fmt.Sprintf("Upgrade OpenEBS cStor pool: %v", poolAndVer),
+			Executor:    updateOpenEBSPool,
+			Data:        &storage.OperationPhaseData{Data: poolAndVer},
+		}
+		root.AddSequential(upgradeVolume)
+	}
+
+	// Upgrade volumes
+
+	//	if err := utils.Exec(exec.Command("kubectl", "get", "pv", "-A", "|", "grep", "openebs-cstor","|","cut","-d' '","-f1","|","grep","pvc"), &out); err != nil {
+	//	if err := utils.Exec(exec.Command("/bin/bash", "-c", "ls -lath | grep 'drw'  | cut -d' ' -f1 | grep 'drw'"), &out); err != nil {
+	//	if err := utils.Exec(exec.Command("/bin/bash", "-c", "ls -lath | grep 'drw'  | cut -d' ' -f1 | grep 'drw'"), &out); err != nil {
+	// TODO use kubectl.Command("get","pods","--field-selector","status.phase=Running","--selector=app","cstor-volAndVer-manager,openebs\.io/storage-class=openebs-cstor","-n","openebs","-o","jsonpath='{.items[*].metadata.labels.openebs\.io/persistent-volAndVer}{" "}{.items[*].metadata.labels.openebs\.io/version}'")
+	if err := utils.Exec(exec.Command("/bin/bash", "-c", "kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-volAndVer-manager,openebs\\.io/storage-class=openebs-cstor  -nopenebs -o  jsonpath='{.items[*].metadata.labels.openebs\\.io/persistent-volAndVer}{\" \"}{.items[*].metadata.labels.openebs\\.io/version}'"), &out); err != nil {
+		//	p.Warnf("Failed exec command. Got output %v:", out.String())
+		return nil, trace.Wrap(err)
+	}
+
+	fmt.Printf("Got volumesAndVersion %v:", out.String())
+	//commandOutput = "pvc-b363b688-8697-4628-b744-6d943e0b8ed1 1.7.0 pvc-b363b688-8697-4628-b744-6d943e0b8ZZZ 1.7.0"
+	commandOutput = out.String()
+
+	volumesAndVersion := strings.Split(commandOutput, "\n")
+	for _, volAndVer := range volumesAndVersion {
+		//vav := strings.Split(volAndVer," ")
+		upgradeVolume := update.Phase{
+			ID:          root.ChildLiteral("upgrade"),
+			Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", volAndVer),
+			Executor:    updateOpenEBSVolume,
+			Data:        &storage.OperationPhaseData{Data: volAndVer},
+		}
+		root.AddSequential(upgradeVolume)
+	}
+
+	return &root, nil
 }
 
 func (r phaseBuilder) runtime(updates []loc.Locator) *update.Phase {

@@ -58,6 +58,21 @@ var (
 	fmtISCSICheckFailedMsg = func(unitName string) string {
 		return fmt.Sprintf(failedISCSIProbeMessage, unitName)
 	}
+	// DefaultProcessesToCheck is the default list of processes to verify that are not running on the host.
+	// This list should be passed to the DefaultProcessChecker function.
+	DefaultProcessesToCheck = []string{
+		"dockerd",
+		"docker-current", // Docker daemon name when installed from RHEL repos.
+		"lxd",
+		"coredns",
+		"kube-apiserver",
+		"kube-scheduler",
+		"kube-controller-manager",
+		"kube-proxy",
+		"kubelet",
+		"planet",
+		"teleport",
+	}
 
 	log = logrus.WithField(trace.Component, "checks")
 )
@@ -840,7 +855,7 @@ func basicCheckers(options *validationpb.ValidateOptions) health.Checker {
 		checkISCSI = true
 	}
 
-	processesToCheck := monitoring.DefaultProcessesToCheck
+	processesToCheck := DefaultProcessesToCheck
 	if checkISCSI {
 		processesToCheck = append(processesToCheck, "iscsid")
 	}
@@ -849,13 +864,16 @@ func basicCheckers(options *validationpb.ValidateOptions) health.Checker {
 		monitoring.NewIPForwardChecker(),
 		monitoring.NewBridgeNetfilterChecker(),
 		monitoring.NewMayDetachMountsChecker(),
-		monitoring.DefaultProcessChecker(processesToCheck),
+		// TEMP		monitoring.DefaultProcessChecker(DefaultProcessesToCheck), // TODO temp for testing
 		defaultPortChecker(options),
 		monitoring.DefaultBootConfigParams(),
 	}
+	/* TODO TEMP for testing
 	if checkISCSI {
-		checkers = append(checkers, monitoring.NewISCSIChecker(fmtISCSICheckFailedMsg))
+		checkers = append(checkers, monitoring.NewISCSIChecker())
 	}
+
+	*/
 
 	return monitoring.NewCompositeChecker("local", checkers)
 }
