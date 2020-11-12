@@ -339,6 +339,15 @@ func (r phaseBuilder) openEBSUpgrade(leadMaster storage.UpdateServer, root *upda
 		root.AddSequential(upgradeVolume)
 	}
 
+	// TEMP test phase that wil fail in order to test rollbacks
+	upgradeVolume := update.Phase{
+		ID:          root.ChildLiteral("openebs-upgrade-volume"),
+		Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", "not_existent_volume 1.1.0"),
+		Executor:    updateOpenEBSVolume,
+		Data:        &storage.OperationPhaseData{Data: "not_existent_volume 1.1.0"},
+	}
+	root.AddSequential(upgradeVolume)
+
 	return nil
 }
 
