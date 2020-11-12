@@ -262,8 +262,8 @@ func (r phaseBuilder) config(nodes []storage.Server) *update.Phase {
 }
 
 // openEBS returns phase that creates OpenEBS configuration in the cluster.
-func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) (*update.Phase, error) {
-	root := update.RootPhase(update.Phase{
+func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) *update.Phase {
+	phase := update.RootPhase(update.Phase{
 		ID:          "openebs",
 		Executor:    openebs,
 		Description: "Create OpenEBS configuration",
@@ -271,6 +271,10 @@ func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) (*update.Phase, e
 			ExecServer: &leadMaster.Server,
 		},
 	})
+	return &phase
+}
+
+func (r phaseBuilder) openEBSUpgrade(leadMaster storage.UpdateServer, root *update.Phase) error {
 
 	var out bytes.Buffer
 
@@ -279,7 +283,7 @@ func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) (*update.Phase, e
 	// TODO use kubectl.Command("get","pods","--field-selector","status.phase=Running","--selector=app","cstor-volAndVer-manager,openebs\.io/storage-class=openebs-cstor","-n","openebs","-o","jsonpath='{.items[*].metadata.labels.openebs\.io/persistent-volAndVer}{" "}{.items[*].metadata.labels.openebs\.io/version}'")
 	if err := utils.Exec(exec.Command("/bin/bash", "-c", "kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-pool  -nopenebs -o  jsonpath='{.items[*].metadata.labels.openebs\\.io/storage-pool-claim}{\" \"}{.items[*].metadata.labels.openebs\\.io/version}'"), &out); err != nil {
 		//	p.Warnf("Failed exec command. Got output %v:", out.String())
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
 	//commandOutput := "cstor-pool 1.7.0"
 	commandOutput := out.String()
@@ -287,7 +291,7 @@ func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) (*update.Phase, e
 	for _, poolAndVer := range poolsAndVersion {
 		//vav := strings.Split(volAndVer," ")
 		upgradeVolume := update.Phase{
-			ID:          root.ChildLiteral("upgrade"),
+			ID:          "openebs-upgrade-pool",
 			Description: fmt.Sprintf("Upgrade OpenEBS cStor pool: %v", poolAndVer),
 			Executor:    updateOpenEBSPool,
 			Data:        &storage.OperationPhaseData{Data: poolAndVer},
@@ -303,7 +307,7 @@ func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) (*update.Phase, e
 	// TODO use kubectl.Command("get","pods","--field-selector","status.phase=Running","--selector=app","cstor-volAndVer-manager,openebs\.io/storage-class=openebs-cstor","-n","openebs","-o","jsonpath='{.items[*].metadata.labels.openebs\.io/persistent-volAndVer}{" "}{.items[*].metadata.labels.openebs\.io/version}'")
 	if err := utils.Exec(exec.Command("/bin/bash", "-c", "kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-volAndVer-manager,openebs\\.io/storage-class=openebs-cstor  -nopenebs -o  jsonpath='{.items[*].metadata.labels.openebs\\.io/persistent-volAndVer}{\" \"}{.items[*].metadata.labels.openebs\\.io/version}'"), &out); err != nil {
 		//	p.Warnf("Failed exec command. Got output %v:", out.String())
-		return nil, trace.Wrap(err)
+		return trace.Wrap(err)
 	}
 
 	fmt.Printf("Got volumesAndVersion %v:", out.String())
@@ -314,7 +318,7 @@ func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) (*update.Phase, e
 	for _, volAndVer := range volumesAndVersion {
 		//vav := strings.Split(volAndVer," ")
 		upgradeVolume := update.Phase{
-			ID:          root.ChildLiteral("upgrade"),
+			ID:          root.ChildLiteral("openebs-upgrade-volume"),
 			Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", volAndVer),
 			Executor:    updateOpenEBSVolume,
 			Data:        &storage.OperationPhaseData{Data: volAndVer},
@@ -322,7 +326,7 @@ func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) (*update.Phase, e
 		root.AddSequential(upgradeVolume)
 	}
 
-	return &root, nil
+	return nil
 }
 
 func (r phaseBuilder) runtime(updates []loc.Locator) *update.Phase {

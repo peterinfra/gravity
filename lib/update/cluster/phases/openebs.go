@@ -116,7 +116,7 @@ func (p *PhaseUpgradePool) executeUpgradeCmd(ctx context.Context, pool string, v
 	}
 
 	var out bytes.Buffer
-	if err := utils.Exec(exec.Command("/bin/bash", "-c", "kubectl apply -f cstor_pool_upgrade.yaml"), &out); err != nil {
+	if err := utils.Exec(exec.Command("/bin/bash", "-c", "ls -lath && kubectl apply -f cstor_pool_upgrade.yaml"), &out); err != nil {
 		p.Warnf("Failed exec command. Got output %v:", out.String())
 		return trace.Wrap(err)
 	}
@@ -150,7 +150,7 @@ func (*PhaseUpgradePool) PostCheck(context.Context) error {
 }
 
 var poolUpgradeTemplate = template.Must(template.New("upgradePool").Parse(`
-This is an example YAML for upgrading cstor SPC.
+#This is an example YAML for upgrading cstor SPC.
 #Some of the values below needs to be changed to
 #match your openebs installation. The fields are
 #indicated with VERIFY
@@ -249,17 +249,6 @@ func (p *PhaseUpgradeVolumes) Execute(ctx context.Context) error {
 	//commandOutput := "pvc-b6cb4c20-6e5b-42c4-8884-7c16d0e052aa\npvc-b6cb4c20-6e5b-42c4-8884-7c16d0e052ZZ"
 	//commandOutput := "pvc-b363b688-8697-4628-b744-6d943e0b8ed1 1.7.0\npvc-b363b688-8697-4628-b744-6d943e0b8ZZZ 1.7.0"
 
-	/*
-		volumesAndVersion := strings.Split(commandOutput,"\n")
-		for _, volAndVer := range volumesAndVersion {
-			vav := strings.Split(volAndVer," ")
-			err := p.executeVolumeUpgradeCmd(ctx, vav[0], vav[1])
-			if err != nil {
-				return trace.Wrap(err)
-			}
-		}
-	*/
-
 	err := p.executeVolumeUpgradeCmd(ctx, p.Volume, p.VolumeVersion)
 	if err != nil {
 		return trace.Wrap(err)
@@ -307,7 +296,7 @@ func (p *PhaseUpgradeVolumes) executeVolumeUpgradeCmd(ctx context.Context, volum
 }
 
 var volumeUpgradeTemplate = template.Must(template.New("upgradeVolumes").Parse(`
-This is an example YAML for upgrading cstor volume.
+#This is an example YAML for upgrading cstor volume.
 #Some of the values below needs to be changed to
 #match your openebs installation. The fields are
 #indicated with VERIFY
