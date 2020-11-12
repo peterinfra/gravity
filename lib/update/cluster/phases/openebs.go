@@ -129,8 +129,7 @@ func (p *PhaseUpgradePool) executeUpgradeCmd(ctx context.Context, pool string, v
 		return trace.Wrap(err)
 	}
 
-
-			p.Infof("streaming job output :1")
+	p.Infof("streaming job output :1")
 	fmt.Printf("streaming job output 2:")
 	// TODO parametrize job name with the template
 	err = runner.StreamLogs(ctx, hooks.JobRef{Name: "cstor-spc-1170220", Namespace: "openebs"}, utils.NopWriteCloser(os.Stdout))
@@ -138,8 +137,8 @@ func (p *PhaseUpgradePool) executeUpgradeCmd(ctx context.Context, pool string, v
 		p.Warnf("Failed to stream logs.")
 		return trace.Wrap(err)
 	}
-				p.Infof("streaming job output :3"
-		fmt.Printf("streaming job output 4:")
+	p.Infof("streaming job output :3")
+	fmt.Printf("streaming job output 4:")
 	return nil
 }
 
@@ -296,15 +295,15 @@ func (p *PhaseUpgradeVolumes) executeVolumeUpgradeCmd(ctx context.Context, volum
 		return trace.Wrap(err)
 	}
 
-		p.Infof("streaming:1")
+	p.Infof("streaming:1")
 	fmt.Printf("streaming 2:")
 	//  TODO paremtrize job name with the value in template
 	err = runner.StreamLogs(ctx, hooks.JobRef{Name: "cstor-vol-170220", Namespace: "openebs"}, utils.NopWriteCloser(os.Stdout))
 	if err != nil {
 		return trace.Wrap(err)
 	}
-			p.Infof("streaming:2")
-		fmt.Printf("streaming 3:")
+	p.Infof("streaming:2")
+	fmt.Printf("streaming 3:")
 	return nil
 }
 
