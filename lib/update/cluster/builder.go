@@ -297,7 +297,7 @@ func (r phaseBuilder) openEBSUpgrade(leadMaster storage.UpdateServer, root *upda
 	for _, poolAndVer := range poolsAndVersion {
 		//vav := strings.Split(volAndVer," ")
 		upgradeVolume := update.Phase{
-			ID:          "openebs-upgrade-pool",
+			ID:          fmt.Sprintf("openebs-upgrade-pool-%v", poolAndVer[0]),
 			Description: fmt.Sprintf("Upgrade OpenEBS cStor pool: %v", poolAndVer),
 			Executor:    updateOpenEBSPool,
 			Data:        &storage.OperationPhaseData{Data: poolAndVer},
@@ -331,7 +331,7 @@ func (r phaseBuilder) openEBSUpgrade(leadMaster storage.UpdateServer, root *upda
 		//vav := strings.Split(volAndVer," ")
 		// TODO check if the value was extracted correctly
 		upgradeVolume := update.Phase{
-			ID:          root.ChildLiteral("openebs-upgrade-volume"),
+			ID:          fmt.Sprintf("openebs-upgrade-volume-%v", volAndVer[0]),
 			Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", volAndVer),
 			Executor:    updateOpenEBSVolume,
 			Data:        &storage.OperationPhaseData{Data: volAndVer},
@@ -341,7 +341,7 @@ func (r phaseBuilder) openEBSUpgrade(leadMaster storage.UpdateServer, root *upda
 
 	// TEMP test phase that wil fail in order to test rollbacks
 	upgradeVolume := update.Phase{
-		ID:          root.ChildLiteral("openebs-upgrade-volume"),
+		ID:          "openebs-upgrade-volume-not_existent_volume",
 		Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", "not_existent_volume 1.1.0"),
 		Executor:    updateOpenEBSVolume,
 		Data:        &storage.OperationPhaseData{Data: "not_existent_volume 1.1.0"},
