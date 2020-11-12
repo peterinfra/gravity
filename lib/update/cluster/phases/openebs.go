@@ -121,13 +121,17 @@ func (p *PhaseUpgradePool) executeUpgradeCmd(ctx context.Context, pool string, v
 		return trace.Wrap(err)
 	}
 
+	p.Infof("Got output %v:", out.String())
+
 	runner, err := hooks.NewRunner(p.Client)
 	if err != nil {
 		return trace.Wrap(err)
 	}
 
-	err = runner.StreamLogs(ctx, hooks.JobRef{Name: "cstor-vol-170220-2", Namespace: "openebs"}, utils.NopWriteCloser(os.Stdout))
+	// TODO parametrize job name with the template
+	err = runner.StreamLogs(ctx, hooks.JobRef{Name: "cstor-spc-1170220", Namespace: "openebs"}, utils.NopWriteCloser(os.Stdout))
 	if err != nil {
+		p.Warnf("Failed to stream logs.")
 		return trace.Wrap(err)
 	}
 
@@ -287,7 +291,8 @@ func (p *PhaseUpgradeVolumes) executeVolumeUpgradeCmd(ctx context.Context, volum
 		return trace.Wrap(err)
 	}
 
-	err = runner.StreamLogs(ctx, hooks.JobRef{Name: "cstor-vol-170220-2", Namespace: "openebs"}, utils.NopWriteCloser(os.Stdout))
+	//
+	err = runner.StreamLogs(ctx, hooks.JobRef{Name: "cstor-vol-170220", Namespace: "openebs"}, utils.NopWriteCloser(os.Stdout))
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -307,7 +312,7 @@ metadata:
   #VERIFY that you have provided a unique name for this upgrade job.
   #The name can be any valid K8s string for name. This example uses
   #the following convention: cstor-vol-<flattened-from-to-versions>
-  name: cstor-vol-170220-2
+  name: cstor-vol-170220
 
   #VERIFY the value of namespace is same as the namespace
   # where openebs components
