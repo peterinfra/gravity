@@ -144,7 +144,7 @@ func (p *PhaseUpgradePool) executeUpgradeCmd(ctx context.Context, pool string, v
 }
 
 func (p *PhaseUpgradePool) Rollback(context.Context) error {
-	// NOOP, don't clean up backupfile during rollback, incase we still need it
+	// OpenEBS doesn't support the concept of a rollback.
 	return nil
 }
 
@@ -377,7 +377,7 @@ spec:
 `))
 
 func (p *PhaseUpgradeVolumes) Rollback(context.Context) error {
-	// NOOP, don't clean up backupfile during rollback, incase we still need it
+	// OpenEBS doesn't support the concept of a rollback.
 	return nil
 }
 

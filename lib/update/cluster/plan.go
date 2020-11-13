@@ -419,7 +419,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 
 		// Check if existing OpenEBS pools or volumes need to be upgraded
 		if p.installedApp.Manifest.OpenEBSEnabled() {
-			err := builder.openEBSUpgrade(p.leadMaster, &root)
+			err := builder.openEBSUpgrade(p.installedApp.Manifest.Base().Version, &root)
 			if err != nil {
 				return nil, trace.Wrap(err)
 			}

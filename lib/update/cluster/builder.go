@@ -275,7 +275,7 @@ func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) *update.Phase {
 	return &phase
 }
 
-func (r phaseBuilder) openEBSUpgrade(leadMaster storage.UpdateServer, root *update.Phase) error {
+func (r phaseBuilder) openEBSUpgrade(fromVersion string, root *update.Phase) error {
 
 	var out bytes.Buffer
 
@@ -294,11 +294,21 @@ func (r phaseBuilder) openEBSUpgrade(leadMaster storage.UpdateServer, root *upda
 	}
 	poolsAndVersion := strings.Split(commandOutput, "\n")
 	fmt.Printf("Got poolsAndVersion %v:", poolsAndVersion)
+	fmt.Printf("Got fromVersion %v:", fromVersion)
+
 	for _, poolAndVer := range poolsAndVersion {
-		vav := strings.Split(poolAndVer, " ")
+		pav := strings.Split(poolAndVer, " ")
+
+		// Check if the version is not already upgraded and also if we support upgrading from this version
+		if fromVersion == "0.0.4" {
+			if pav[1] != "1.4.0" && pav[1] != "1.5.0" && pav[1] != "1.7.0" {
+				fmt.Printf("Skipping upgrade for pool %v because not in expected fromVersion: %v", pav[0], pav[1])
+				continue
+			}
+		}
 		upgradeVolume := update.Phase{
-			ID:          fmt.Sprintf("openebs-upgrade-pool-%v", vav[0]),
-			Description: fmt.Sprintf("Upgrade OpenEBS cStor pool: %v", vav[0]),
+			ID:          fmt.Sprintf("openebs-upgrade-pool-%v", pav[0]),
+			Description: fmt.Sprintf("Upgrade OpenEBS cStor pool: %v", pav[0]),
 			Executor:    updateOpenEBSPool,
 			Data:        &storage.OperationPhaseData{Data: poolAndVer},
 		}
@@ -329,6 +339,12 @@ func (r phaseBuilder) openEBSUpgrade(leadMaster storage.UpdateServer, root *upda
 	volumesAndVersion := strings.Split(commandOutput, "\n")
 	for _, volAndVer := range volumesAndVersion {
 		vav := strings.Split(volAndVer, " ")
+		if fromVersion == "0.0.4" {
+			if vav[1] != "1.4.0" && vav[1] != "1.5.0" && vav[1] != "1.7.0" {
+				fmt.Printf("Skipping upgrade for volume %v because not in expected fromVersion: %v", vav[0], vav[1])
+				continue
+			}
+		}
 		// TODO check if the value was extracted correctly
 		upgradeVolume := update.Phase{
 			ID:          fmt.Sprintf("openebs-upgrade-volume-%v", vav[0]),
