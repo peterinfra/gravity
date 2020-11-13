@@ -295,10 +295,10 @@ func (r phaseBuilder) openEBSUpgrade(leadMaster storage.UpdateServer, root *upda
 	poolsAndVersion := strings.Split(commandOutput, "\n")
 	fmt.Printf("Got poolsAndVersion %v:", poolsAndVersion)
 	for _, poolAndVer := range poolsAndVersion {
-		//vav := strings.Split(volAndVer," ")
+		vav := strings.Split(poolAndVer, " ")
 		upgradeVolume := update.Phase{
-			ID:          fmt.Sprintf("openebs-upgrade-pool-%v", poolAndVer[0]),
-			Description: fmt.Sprintf("Upgrade OpenEBS cStor pool: %v", poolAndVer),
+			ID:          fmt.Sprintf("openebs-upgrade-pool-%v", vav[0]),
+			Description: fmt.Sprintf("Upgrade OpenEBS cStor pool: %v", vav[0]),
 			Executor:    updateOpenEBSPool,
 			Data:        &storage.OperationPhaseData{Data: poolAndVer},
 		}
@@ -328,11 +328,11 @@ func (r phaseBuilder) openEBSUpgrade(leadMaster storage.UpdateServer, root *upda
 
 	volumesAndVersion := strings.Split(commandOutput, "\n")
 	for _, volAndVer := range volumesAndVersion {
-		//vav := strings.Split(volAndVer," ")
+		vav := strings.Split(volAndVer, " ")
 		// TODO check if the value was extracted correctly
 		upgradeVolume := update.Phase{
-			ID:          fmt.Sprintf("openebs-upgrade-volume-%v", volAndVer[0]),
-			Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", volAndVer),
+			ID:          fmt.Sprintf("openebs-upgrade-volume-%v", vav[0]),
+			Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", vav[0]),
 			Executor:    updateOpenEBSVolume,
 			Data:        &storage.OperationPhaseData{Data: volAndVer},
 		}
