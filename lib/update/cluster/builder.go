@@ -307,7 +307,7 @@ func (r phaseBuilder) openEBSUpgrade(fromVersion string, root *update.Phase) err
 			}
 
 			if pav[1] == "2.2.0" {
-				fmt.Printf("Skipping upgrade of pool %v because it is already in the expected toVersion: %v", pav[0], pav[1])
+				fmt.Printf("Skipping upgrade of pool %v because it is already upgraded to the expected toVersion: %v", pav[0], pav[1])
 				continue
 			}
 		} else {
@@ -354,7 +354,7 @@ func (r phaseBuilder) openEBSUpgrade(fromVersion string, root *update.Phase) err
 			}
 
 			if vav[1] == "2.2.0" {
-				fmt.Printf("Skipping upgrade of volume %v because it is already in the expected toVersion: %v", vav[0], vav[1])
+				fmt.Printf("Skipping upgrade of volume %v because it is already upgraded to the expected toVersion: %v", vav[0], vav[1])
 				continue
 			}
 		} else {
