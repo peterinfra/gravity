@@ -19,7 +19,6 @@ package phases
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/storage"
 	"os/exec"
@@ -128,18 +127,14 @@ func (p *PhaseUpgradePool) executeUpgradeCmd(ctx context.Context, pool string, v
 		return trace.Wrap(err)
 	}
 
-	p.Infof("streaming job output :1")
-	fmt.Printf("streaming job output 2:")
 	// TODO parametrize job name with the template
 	upgradeJobLog := utils.NewSyncBuffer()
 	err = runner.StreamLogs(ctx, hooks.JobRef{Name: "cstor-spc-1170220", Namespace: "openebs"}, upgradeJobLog)
 	if err != nil {
-		p.Warnf("Failed to stream logs.")
 		return trace.Wrap(err)
 	}
-	p.Infof(" got logs: %v", upgradeJobLog.String())
-	p.Infof("streaming job output :3")
-	fmt.Printf("streaming job output 4:")
+	p.Infof(" Got upgrade job logs: %v", upgradeJobLog.String())
+
 	return nil
 }
 
@@ -241,22 +236,7 @@ func NewPhaseUpgradeVolumes(phase storage.OperationPhase, client *kubernetes.Cli
 }
 
 func (p *PhaseUpgradeVolumes) Execute(ctx context.Context) error {
-	p.Info("Upgrading OpenEBS volumesAndVersion.")
-
-	// kubectl get pv -A | grep openebs-cstor | cut -d' ' -f1 | grep pvc
-	//var out bytes.Buffer
-	//	if err := utils.Exec(exec.Command("kubectl", "get", "pv", "-A", "|", "grep", "openebs-cstor","|","cut","-d' '","-f1","|","grep","pvc"), &out); err != nil {
-	//	if err := utils.Exec(exec.Command("/bin/bash", "-c", "ls -lath | grep 'drw'  | cut -d' ' -f1 | grep 'drw'"), &out); err != nil {
-	//	if err := utils.Exec(exec.Command("/bin/bash", "-c", "ls -lath | grep 'drw'  | cut -d' ' -f1 | grep 'drw'"), &out); err != nil {
-	// TODO use kubectl.Command("get","pods","--field-selector","status.phase=Running","--selector=app","cstor-volAndVer-manager,openebs\.io/storage-class=openebs-cstor","-n","openebs","-o","jsonpath='{.items[*].metadata.labels.openebs\.io/persistent-volAndVer}{" "}{.items[*].metadata.labels.openebs\.io/version}'")
-	/*if err := utils.Exec(exec.Command("/bin/bash", "-c", "kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-volAndVer-manager,openebs\\.io/storage-class=openebs-cstor  -nopenebs -o  jsonpath='{.items[*].metadata.labels.openebs\\.io/persistent-volAndVer}{\" \"}{.items[*].metadata.labels.openebs\\.io/version}'"), &out); err != nil {
-		p.Warnf("Failed exec command. Got output %v:", out.String())
-		return trace.Wrap(err)
-	}*/
-
-	//p.Infof("Got volumesAndVersion %v:", out.String())
-	//commandOutput := "pvc-b6cb4c20-6e5b-42c4-8884-7c16d0e052aa\npvc-b6cb4c20-6e5b-42c4-8884-7c16d0e052ZZ"
-	//commandOutput := "pvc-b363b688-8697-4628-b744-6d943e0b8ed1 1.7.0\npvc-b363b688-8697-4628-b744-6d943e0b8ZZZ 1.7.0"
+	p.Info("Upgrading OpenEBS volumes.")
 
 	err := p.executeVolumeUpgradeCmd(ctx, p.Volume, p.VolumeVersion)
 	if err != nil {
@@ -296,8 +276,6 @@ func (p *PhaseUpgradeVolumes) executeVolumeUpgradeCmd(ctx context.Context, volum
 		return trace.Wrap(err)
 	}
 
-	p.Infof("streaming:1")
-	fmt.Printf("streaming 2:")
 	upgradeJobLog := utils.NewSyncBuffer()
 	//  TODO paremtrize job name with the value in template
 	err = runner.StreamLogs(ctx, hooks.JobRef{Name: "cstor-vol-170220", Namespace: "openebs"}, upgradeJobLog)
@@ -305,9 +283,8 @@ func (p *PhaseUpgradeVolumes) executeVolumeUpgradeCmd(ctx context.Context, volum
 		return trace.Wrap(err)
 	}
 
-	p.Infof(" got logs: %v", upgradeJobLog.String())
-	p.Infof("streaming:2")
-	fmt.Printf("streaming 3:")
+	p.Infof(" Got upgrade job logs: %v", upgradeJobLog.String())
+
 	return nil
 }
 
