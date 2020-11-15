@@ -251,6 +251,11 @@ func (p *PhaseUpgradeVolumes) executeVolumeUpgradeCmd(ctx context.Context, volum
 		return trace.Wrap(err)
 	}
 
+	err = runner.Wait(ctx, hooks.JobRef{Name: "cstor-vol-170220", Namespace: "openebs"})
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
 	upgradeJobLog := utils.NewSyncBuffer()
 	//  TODO paremtrize job name with the value in template
 	err = runner.StreamLogs(ctx, hooks.JobRef{Name: "cstor-vol-170220", Namespace: "openebs"}, upgradeJobLog)

@@ -417,8 +417,6 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 		runtimePhase := *builder.runtime(runtimeUpdates).Require(mastersPhase)
 		root.Add(runtimePhase)
 
-		// Check if existing OpenEBS pools or volumes need to be upgraded
-		// and create upgrade steps
 		if p.installedApp.Manifest.OpenEBSEnabled() {
 			for _, update := range runtimeUpdates {
 				if update.Name == constants.StorageAppPackage {

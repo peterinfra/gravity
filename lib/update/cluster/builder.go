@@ -275,6 +275,8 @@ func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) *update.Phase {
 	return &phase
 }
 
+// openEBSUpgrade checks if existing OpenEBS pools or volumes need to be upgraded
+// and create upgrade steps
 func (r phaseBuilder) openEBSUpgrade(fromVersion string, root *update.Phase) error {
 
 	var out bytes.Buffer
@@ -360,7 +362,6 @@ func (r phaseBuilder) openEBSUpgrade(fromVersion string, root *update.Phase) err
 			return trace.Wrap(errors.New(fmt.Sprintf("unsupported fromVersion=%v", fromVersion)))
 		}
 
-		// TODO check if the value was extracted correctly
 		upgradeVolume := update.Phase{
 			ID:          fmt.Sprintf("openebs-upgrade-volume-%v", vav[0]),
 			Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", vav[0]),
