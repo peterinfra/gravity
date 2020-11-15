@@ -84,9 +84,9 @@ const (
 	cleanupNode = "cleanup_node"
 	// openebs is the phase that creates OpenEBS configuration
 	openebs = "openebs"
-	// updateOpenEBSVolume is the phase to upgrade_volumes the openebs data to the new openebs instance
+	// updateOpenEBSVolume is the phase to upgrade OpenEBS volumes
 	updateOpenEBSVolume = "openebs_upgrade_volume"
-	// updateOpenEBSPool is the phase to upgrade_pools the openebs data to the new openebs instance
+	// updateOpenEBSPool is the phase to upgrade OpenEBS pools
 	updateOpenEBSPool = "openebs_upgrade_pool"
 )
 
@@ -176,7 +176,7 @@ func fsmSpec(c Config) fsm.FSMSpecFunc {
 		case openebs:
 			return installphases.NewOpenEBS(p, c.Operator, c.Client)
 		case updateOpenEBSVolume:
-			return libphase.NewPhaseUpgradeVolumes(p.Phase, c.Client, logger)
+			return libphase.NewPhaseUpgradeVolume(p.Phase, c.Client, logger)
 		case updateOpenEBSPool:
 			return libphase.NewPhaseUpgradePool(p.Phase, c.Client, logger)
 		default:

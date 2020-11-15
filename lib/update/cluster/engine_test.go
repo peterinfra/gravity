@@ -18,7 +18,6 @@ package cluster
 
 import (
 	"context"
-	"github.com/gravitational/gravity/lib/update/cluster/phases"
 	"strings"
 	"testing"
 
@@ -69,57 +68,49 @@ func (s *FSMSuite) SetUpTest(c *check.C) {
 }
 
 func (s *FSMSuite) TestFSMBasic(c *check.C) {
-	phase, err := phases.NewPhaseUpgradeVolumes(nil, logrus.StandardLogger())
+	plan := storage.OperationPlan{
+		OperationID:   operationID,
+		OperationType: "test_operation",
+		ClusterName:   clusterName,
+		Phases: []storage.OperationPhase{
+			{ID: "/phase1"},
+			{ID: "/phase2", Requires: []string{"/phase1"}},
+		},
+	}
+
+	checkStates(c, s.resolvePlan(c, plan), map[string]string{
+		"/phase1": storage.OperationPhaseStateUnstarted,
+		"/phase2": storage.OperationPhaseStateUnstarted,
+	})
+
+	s.engine.plan = plan
+	ctx := context.TODO()
+
+	// phase2 requires phase1 to be completed first
+	err := s.fsm.ExecutePhase(ctx, fsm.Params{
+		PhaseID: "/phase2",
+	})
+	c.Assert(err, check.NotNil)
+
+	err = s.fsm.ExecutePhase(ctx, fsm.Params{
+		PhaseID: "/phase1",
+	})
 	c.Assert(err, check.IsNil)
 
-	err = phase.Execute(context.TODO())
+	checkStates(c, s.resolvePlan(c, plan), map[string]string{
+		"/phase1": storage.OperationPhaseStateCompleted,
+		"/phase2": storage.OperationPhaseStateUnstarted,
+	})
+
+	err = s.fsm.ExecutePhase(ctx, fsm.Params{
+		PhaseID: "/phase2",
+	})
 	c.Assert(err, check.IsNil)
-	/*
-		plan := storage.OperationPlan{
-			OperationID:   operationID,
-			OperationType: "test_operation",
-			ClusterName:   clusterName,
-			Phases: []storage.OperationPhase{
-				{ID: "/phase1"},
-				{ID: "/phase2", Requires: []string{"/phase1"}},
-			},
-		}
 
-		checkStates(c, s.resolvePlan(c, plan), map[string]string{
-			"/phase1": storage.OperationPhaseStateUnstarted,
-			"/phase2": storage.OperationPhaseStateUnstarted,
-		})
-
-		s.engine.plan = plan
-		ctx := context.TODO()
-
-		// phase2 requires phase1 to be completed first
-		err := s.fsm.ExecutePhase(ctx, fsm.Params{
-			PhaseID: "/phase2",
-		})
-		c.Assert(err, check.NotNil)
-
-		err = s.fsm.ExecutePhase(ctx, fsm.Params{
-			PhaseID: "/phase1",
-		})
-		c.Assert(err, check.IsNil)
-
-		checkStates(c, s.resolvePlan(c, plan), map[string]string{
-			"/phase1": storage.OperationPhaseStateCompleted,
-			"/phase2": storage.OperationPhaseStateUnstarted,
-		})
-
-		err = s.fsm.ExecutePhase(ctx, fsm.Params{
-			PhaseID: "/phase2",
-		})
-		c.Assert(err, check.IsNil)
-
-		checkStates(c, s.resolvePlan(c, plan), map[string]string{
-			"/phase1": storage.OperationPhaseStateCompleted,
-			"/phase2": storage.OperationPhaseStateCompleted,
-		})
-
-	*/
+	checkStates(c, s.resolvePlan(c, plan), map[string]string{
+		"/phase1": storage.OperationPhaseStateCompleted,
+		"/phase2": storage.OperationPhaseStateCompleted,
+	})
 }
 
 func (s *FSMSuite) TestFSMExecuteSubphase(c *check.C) {

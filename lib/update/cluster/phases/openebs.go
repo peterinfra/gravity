@@ -34,34 +34,11 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// Upgrade ETCD
-// Upgrading etcd to etcd 3 is a somewhat complicated process.
-// According to the etcd documentation, upgrades of a cluster are only supported one release at a time. Since we are
-// several versions behind, coordinate several upgrades in succession has a certain amount of risk and may also be
-// time consuming.
-//
-// The chosen approach to upgrades of etcd is as follows
-// 1. Planet will ship with each version of etcd we support upgrades from
-// 2. Planet when started, will determine the version of etcd to use (planet etcd init)
-//      This is done by assuming the oldest possible etcd release
-//      During an upgrade, the verison of etcd to use is written to the etcd data directory
-// 3. Backup all etcd data via API
-// 4. Shutdown etcd (all servers) // API outage starts
-// 6. Start the cluster masters, but with clients bound to an alternative address (127.0.0.2) and using new data dir
-//      The data directory is chosen as /ext/etcd/<version>, so when upgrading, etcd will start with a blank database
-//      To rollback, we start the old version of etcd, pointed to the data directory from the previous version
-//      We also delete the data from a previous upgrade, so we can only roll back once
-// 7. Shutdown the temporary etcd node, and do an offline database restore to the newly created database
-// 8. Restore the etcd data using the API to the new version, and migrate /registry (kubernetes) data to v3 datastore
-// 9. Restart etcd on the correct ports// API outage ends
-// 10. Restart gravity-site to fix elections
-//
-//
+// Upgrade OpenEBS
+// Following the steps from the OpenEBS' web site.
+
 // Rollback
-// Stop etcd (all servers)
-// Set the version to use to be the previous version
-// Restart etcd using the old version, pointed at the old data directory
-// Start etcd (all servers)
+// Not supported by OpenEBS
 
 // PhaseUpgradePool backs up etcd data on all servers
 type PhaseUpgradePool struct {
@@ -144,12 +121,10 @@ func (p *PhaseUpgradePool) Rollback(context.Context) error {
 }
 
 func (*PhaseUpgradePool) PreCheck(ctx context.Context) error {
-	// TODO(lenko) Check the version of the existing volumes
 	return nil
 }
 
 func (*PhaseUpgradePool) PostCheck(context.Context) error {
-	// TODO(lenko) Check the version of the new volumes
 	return nil
 }
 
@@ -224,7 +199,7 @@ type PhaseUpgradeVolumes struct {
 	VolumeVersion string
 }
 
-func NewPhaseUpgradeVolumes(phase storage.OperationPhase, client *kubernetes.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
+func NewPhaseUpgradeVolume(phase storage.OperationPhase, client *kubernetes.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 
 	volAndVer := strings.Split(phase.Data.Data, " ")
 	return &PhaseUpgradeVolumes{
@@ -283,7 +258,7 @@ func (p *PhaseUpgradeVolumes) executeVolumeUpgradeCmd(ctx context.Context, volum
 		return trace.Wrap(err)
 	}
 
-	p.Infof(" Got upgrade job logs: %v", upgradeJobLog.String())
+	p.Infof("Got upgrade job logs: %v", upgradeJobLog.String())
 
 	return nil
 }
@@ -359,11 +334,9 @@ func (p *PhaseUpgradeVolumes) Rollback(context.Context) error {
 }
 
 func (*PhaseUpgradeVolumes) PreCheck(ctx context.Context) error {
-	// TODO(lenko) Check the version of the existing volumes
 	return nil
 }
 
 func (*PhaseUpgradeVolumes) PostCheck(context.Context) error {
-	// TODO(lenko) Check the version of the new volumes
 	return nil
 }

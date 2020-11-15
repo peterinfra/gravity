@@ -864,16 +864,14 @@ func basicCheckers(options *validationpb.ValidateOptions) health.Checker {
 		monitoring.NewIPForwardChecker(),
 		monitoring.NewBridgeNetfilterChecker(),
 		monitoring.NewMayDetachMountsChecker(),
-		// TEMP		monitoring.DefaultProcessChecker(DefaultProcessesToCheck), // TODO temp for testing
+		monitoring.DefaultProcessChecker(DefaultProcessesToCheck), // TODO temp for testing
 		defaultPortChecker(options),
 		monitoring.DefaultBootConfigParams(),
 	}
-	/* TODO TEMP for testing
-	if checkISCSI {
-		checkers = append(checkers, monitoring.NewISCSIChecker())
-	}
 
-	*/
+	if checkISCSI {
+		checkers = append(checkers, monitoring.NewISCSIChecker(fmtISCSICheckFailedMsg))
+	}
 
 	return monitoring.NewCompositeChecker("local", checkers)
 }
