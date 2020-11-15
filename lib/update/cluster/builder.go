@@ -291,6 +291,7 @@ func (r phaseBuilder) openEBSUpgrade(fromVersion string, root *update.Phase) err
 	//commandOutput := "cstor-pool 1.7.0"
 	commandOutput := out.String()
 	log.Infof("Got pool commandOutput %v:", commandOutput)
+	fmt.Sprintf("\n pools-> commandOutput='%v', fromVersion='%v'\n", commandOutput, fromVersion)
 	if len(commandOutput) == 0 {
 		return trace.Wrap(errors.New("failed to get pool info"))
 	}
@@ -339,6 +340,8 @@ func (r phaseBuilder) openEBSUpgrade(fromVersion string, root *update.Phase) err
 
 	log.Infof("Got volumesAndVersion %v:", out.String())
 	commandOutput = out.String()
+
+	fmt.Sprintf("\n volumes -> commandOutput='%v', fromVersion='%v'\n", commandOutput, fromVersion)
 
 	log.Infof("Got commandOutput for volume: '%v'", commandOutput)
 	if len(commandOutput) == 0 {
