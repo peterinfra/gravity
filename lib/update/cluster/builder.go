@@ -284,7 +284,7 @@ func (r phaseBuilder) openEBSUpgrade(fromVersion string, root *update.Phase) err
 	// Upgrade pools
 	// cstor-pool-y7ru-dcfb9b955-lqdtd                                   3/3     Running     3          144m   app=cstor-pool,openebs.io/cstor-pool=cstor-pool-y7ru,openebs.io/storage-pool-claim=cstor-pool,openebs.io/version=2.2.0,pod-template-hash=dcfb9b955
 	// TODO use kubectl.Command("get","pods","--field-selector","status.phase=Running","--selector=app","cstor-volAndVer-manager,openebs\.io/storage-class=openebs-cstor","-n","openebs","-o","jsonpath='{.items[*].metadata.labels.openebs\.io/persistent-volAndVer}{" "}{.items[*].metadata.labels.openebs\.io/version}'")
-	if err := utils.Exec(exec.Command("/bin/bash", "-c", "kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-pool  -nopenebs -o  jsonpath='{.items[*].metadata.labels.openebs\\.io/storage-pool-claim}{\" \"}{.items[*].metadata.labels.openebs\\.io/version}'"), &out); err != nil {
+	if err := utils.Exec(exec.Command("/bin/bash", "-c", "kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-pool  -nopenebs -o  jsonpath='{range .items[*]}{.metadata.labels.openebs\\.io/storage-pool-claim}{\" \"}{.metadata.labels.openebs\\.io/version}{\"\\n\"}{end}'"), &out); err != nil {
 		log.Warnf("Failed exec command. Got output %v:", out.String())
 		return trace.Wrap(err)
 	}
@@ -333,7 +333,8 @@ func (r phaseBuilder) openEBSUpgrade(fromVersion string, root *update.Phase) err
 	//	if err := utils.Exec(exec.Command("/bin/bash", "-c", "ls -lath | grep 'drw'  | cut -d' ' -f1 | grep 'drw'"), &out); err != nil {
 	//	if err := utils.Exec(exec.Command("/bin/bash", "-c", "ls -lath | grep 'drw'  | cut -d' ' -f1 | grep 'drw'"), &out); err != nil {
 	// TODO use kubectl.Command("get","pods","--field-selector","status.phase=Running","--selector=app","cstor-volAndVer-manager,openebs\.io/storage-class=openebs-cstor","-n","openebs","-o","jsonpath='{.items[*].metadata.labels.openebs\.io/persistent-volAndVer}{" "}{.items[*].metadata.labels.openebs\.io/version}'")
-	if err := utils.Exec(exec.Command("/bin/bash", "-c", "kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-volume-manager,openebs\\.io/storage-class=openebs-cstor  -nopenebs -o  jsonpath='{.items[*].metadata.labels.openebs\\.io/persistent-volume}{\" \"}{.items[*].metadata.labels.openebs\\.io/version}'"), &out); err != nil {
+	// sudo kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-volume-manager,openebs\.io/storage-class=openebs-cstor  -nopenebs -o  jsonpath='{range .items[*]}{.metadata.labels.openebs\.io/persistent-volume}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}'
+	if err := utils.Exec(exec.Command("/bin/bash", "-c", "kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-volume-manager,openebs\\.io/storage-class=openebs-cstor  -nopenebs -o  jsonpath='{range .items[*]}{.metadata.labels.openebs\\.io/persistent-volume}{\" \"}{.metadata.labels.openebs\\.io/version}{\"\\n\"}{end}'"), &out); err != nil {
 		log.Warnf("Failed exec command. Got output %v:", out.String())
 		return trace.Wrap(err)
 	}
