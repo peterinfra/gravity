@@ -177,9 +177,13 @@ func GetOpenEBSPoolsVersions(ctx context.Context) (map[string]string, error) {
 	poolsAndVersions := strings.Split(string(out), "\n")
 	spew.Dump(poolsAndVersions)
 
+	// TODO remove duplication
 	poolAndVersion := make(map[string]string)
 	for _, poolAndVer := range poolsAndVersions {
 		pav := strings.Split(poolAndVer, " ")
+		if len(pav) != 2 {
+			continue
+		}
 
 		poolAndVersion[pav[0]] = pav[1]
 	}
@@ -208,11 +212,15 @@ func GetOpenEBSVolumesVersions(ctx context.Context) (map[string]string, error) {
 	volumesAndVersions := strings.Split(string(out), "\n")
 	spew.Dump(volumesAndVersions)
 
+	// TODO remove duplication with above
 	volumeAndVersion := make(map[string]string)
 	for _, volumeAndVer := range volumesAndVersions {
-		pav := strings.Split(volumeAndVer, " ")
+		vav := strings.Split(volumeAndVer, " ")
+		if len(vav) != 2 {
+			continue
+		}
 
-		volumeAndVersion[pav[0]] = pav[1]
+		volumeAndVersion[vav[0]] = vav[1]
 	}
 
 	spew.Dump(volumeAndVersion)
