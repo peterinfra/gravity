@@ -30,6 +30,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/trace"
 
+	"github.com/davecgh/go-spew/spew"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -154,6 +155,36 @@ func GetNodesAddr(ctx context.Context) ([]string, error) {
 
 	nodes := strings.Fields(strings.TrimSpace(string(out)))
 	return nodes, nil
+}
+
+// GetNodeAddresses returns internal IP addresses of all nodes in the cluster
+func GetOpenEBSPoolsVersions(ctx context.Context) (map[string]string, error) {
+	//sudo kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-pool  -nopenebs -o  jsonpath='{range .items[*]}{.metadata.labels.openebs\.io/storage-pool-claim}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}'
+	args := utils.PlanetCommand(Command("get", "pods",
+		"--field-selector", "status.phase=Running",
+		"--selector", "app=cstor-pool",
+		"-nopenebs",
+		"-o", `jsonpath='{range .items[*]}{.metadata.labels.openebs\.io/storage-pool-claim}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}'`))
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+
+	cmd.Stderr = utils.NewStderrLogger(log.WithField("cmd", "kubectl get pods"))
+
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, trace.Wrap(err, "%v : %v", cmd, err)
+	}
+
+	poolsAndVersions := strings.Split(string(out), "\n")
+	spew.Dump(poolsAndVersions)
+
+	poolAndVersion := make(map[string]string)
+	for _, poolAndVer := range poolsAndVersions {
+		pav := strings.Split(poolAndVer, " ")
+
+		poolAndVersion[pav[0]] = pav[1]
+	}
+
+	return poolAndVersion, nil
 }
 
 // WithPrivilegedConfig returns a command option to specify a privileged kubeconfig

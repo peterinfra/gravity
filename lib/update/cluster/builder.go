@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/gravitational/gravity/lib/utils"
 	"os/exec"
 	"sort"
 	"strconv"
@@ -33,11 +32,15 @@ import (
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/update"
 	libphase "github.com/gravitational/gravity/lib/update/cluster/phases"
+	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/utils/kubectl"
 
 	"github.com/coreos/go-semver/semver"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/net/context"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -284,33 +287,32 @@ func (r phaseBuilder) openEBSUpgrade(fromVersion string, root *update.Phase) err
 	// Upgrade pools
 	// cstor-pool-y7ru-dcfb9b955-lqdtd                                   3/3     Running     3          144m   app=cstor-pool,openebs.io/cstor-pool=cstor-pool-y7ru,openebs.io/storage-pool-claim=cstor-pool,openebs.io/version=2.2.0,pod-template-hash=dcfb9b955
 	// TODO use kubectl.Command("get","pods","--field-selector","status.phase=Running","--selector=app","cstor-volAndVer-manager,openebs\.io/storage-class=openebs-cstor","-n","openebs","-o","jsonpath='{.items[*].metadata.labels.openebs\.io/persistent-volAndVer}{" "}{.items[*].metadata.labels.openebs\.io/version}'")
-	if err := utils.Exec(exec.Command("/bin/bash", "-c", "kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-pool  -nopenebs -o  jsonpath='{range .items[*]}{.metadata.labels.openebs\\.io/storage-pool-claim}{\" \"}{.metadata.labels.openebs\\.io/version}{\"\\n\"}{end}'"), &out); err != nil {
-		log.Warnf("Failed exec command. Got output %v:", out.String())
+	//	if err := kubectl.Command("get","pods","--field-selector","status.phase=Running","--selector=app","cstor-pool","-nopenebs","-o","jsonpath","'{range .items[*]}{.metadata.labels.openebs\\.io/storage-pool-claim}{\" \"}{.metadata.labels.openebs\\.io/version}{\"\\n\"}{end}'"), &out); err != nil {
+	//  if err := utils.Exec(exec.Command("/bin/bash", "-c", "kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-pool  -nopenebs -o  jsonpath='{range .items[*]}{.metadata.labels.openebs\\.io/storage-pool-claim}{\" \"}{.metadata.labels.openebs\\.io/version}{\"\\n\"}{end}'"), &out); err != nil {
+	//		log.Warnf("Failed exec command. Got output %v:", out.String())
+	//		return trace.Wrap(err)
+	//	}
+	//commandOutput := "cstor-pool 1.7.0"
+	//commandOutput := out.String()
+	//log.Infof("Got pool commandOutput %v:", commandOutput)
+	//fmt.Sprintf("\n pools-> commandOutput='%v', fromVersion='%v'\n", commandOutput, fromVersion)
+	pv, err := kubectl.GetOpenEBSPoolsVersions(context.TODO())
+	if err != nil {
 		return trace.Wrap(err)
 	}
-	//commandOutput := "cstor-pool 1.7.0"
-	commandOutput := out.String()
-	log.Infof("Got pool commandOutput %v:", commandOutput)
-	fmt.Sprintf("\n pools-> commandOutput='%v', fromVersion='%v'\n", commandOutput, fromVersion)
-	if len(commandOutput) == 0 {
-		return trace.Wrap(errors.New("failed to get pool info"))
-	}
-	poolsAndVersion := strings.Split(commandOutput, "\n")
-	log.Infof("Got poolsAndVersion %v:", poolsAndVersion)
-	log.Infof("Got fromVersion %v:", fromVersion)
+	// TODO remove TEMP
+	spew.Dump(pv)
 
-	for _, poolAndVer := range poolsAndVersion {
-		pav := strings.Split(poolAndVer, " ")
-
+	for k, v := range pv {
 		// Check if the version is not already upgraded and also if we support upgrading from this version
 		if fromVersion == "0.0.4" {
-			if pav[1] != "1.4.0" && pav[1] != "1.5.0" && pav[1] != "1.7.0" && pav[1] != "2.2.0" {
-				log.Infof("Skipping upgrade of pool %v because not in the expected fromVersion: %v", pav[0], pav[1])
+			if v != "1.4.0" && v != "1.5.0" && v != "1.7.0" && v != "2.2.0" {
+				log.Infof("Skipping upgrade of pool %v because not in the expected fromVersion: %v", k, v)
 				continue
 			}
 
-			if pav[1] == "2.2.0" {
-				log.Infof("Skipping upgrade of pool %v because it is already upgraded to the expected toVersion: %v", pav[0], pav[1])
+			if v == "2.2.0" {
+				log.Infof("Skipping upgrade of pool %v because it is already upgraded to the expected toVersion: %v", k, v)
 				continue
 			}
 		} else {
@@ -318,10 +320,10 @@ func (r phaseBuilder) openEBSUpgrade(fromVersion string, root *update.Phase) err
 		}
 
 		upgradeVolume := update.Phase{
-			ID:          fmt.Sprintf("openebs-upgrade-pool-%v", pav[0]),
-			Description: fmt.Sprintf("Upgrade OpenEBS cStor pool: %v", pav[0]),
+			ID:          fmt.Sprintf("openebs-upgrade-pool-%v", k),
+			Description: fmt.Sprintf("Upgrade OpenEBS cStor pool: %v", k),
 			Executor:    updateOpenEBSPool,
-			Data:        &storage.OperationPhaseData{Data: poolAndVer},
+			Data:        &storage.OperationPhaseData{Data: k + " " + v},
 		}
 		root.AddSequential(upgradeVolume)
 	}
@@ -340,7 +342,7 @@ func (r phaseBuilder) openEBSUpgrade(fromVersion string, root *update.Phase) err
 	}
 
 	log.Infof("Got volumesAndVersion %v:", out.String())
-	commandOutput = out.String()
+	commandOutput := out.String()
 
 	fmt.Sprintf("\n volumes -> commandOutput='%v', fromVersion='%v'\n", commandOutput, fromVersion)
 
