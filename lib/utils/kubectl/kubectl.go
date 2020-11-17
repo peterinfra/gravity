@@ -174,7 +174,7 @@ func GetOpenEBSVolumesVersions(ctx context.Context) (map[string]string, error) {
 	// sudo kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-volume-manager,openebs\.io/storage-class=openebs-cstor  -nopenebs -o  jsonpath='{range .items[*]}{.metadata.labels.openebs\.io/persistent-volume}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}'
 	args := utils.PlanetCommand(Command("get", "pods",
 		"--field-selector", "status.phase=Running",
-		"--selector", "app=cstor-volume-manager,openebs\\.io/storage-class=openebs-cstor",
+		"--selector", `app=cstor-volume-manager,openebs\.io/storage-class=openebs-cstor`,
 		"-nopenebs",
 		"-o", `jsonpath={range .items[*]}{.metadata.labels.openebs\.io/persistent-volume}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}`))
 
@@ -185,6 +185,7 @@ func GetOpenEBSVolumesVersions(ctx context.Context) (map[string]string, error) {
 // getKubectlOutput
 // expects a kubectl command that returns one ro more lines of key values
 func getKubectlOutput(ctx context.Context, args []string) (map[string]string, error) {
+	spew.Dump(args)
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 
 	cmd.Stderr = utils.NewStderrLogger(log.WithField("cmd", "kubectl get pods"))
