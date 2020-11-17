@@ -165,6 +165,26 @@ func GetOpenEBSPoolsVersions(ctx context.Context) (map[string]string, error) {
 		"--selector", "app=cstor-pool",
 		"-nopenebs",
 		"-o", `jsonpath={range .items[*]}{.metadata.labels.openebs\.io/storage-pool-claim}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}`))
+
+	return getKubectlOutput(ctx, args)
+}
+
+// GetOpenEBSPoolsVersions returns internal IP addresses of all nodes in the cluster
+func GetOpenEBSVolumesVersions(ctx context.Context) (map[string]string, error) {
+	// sudo kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-volume-manager,openebs\.io/storage-class=openebs-cstor  -nopenebs -o  jsonpath='{range .items[*]}{.metadata.labels.openebs\.io/persistent-volume}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}'
+	args := utils.PlanetCommand(Command("get", "pods",
+		"--field-selector", "status.phase=Running",
+		"--selector", `app=cstor-volume-manager,openebs\.io/storage-class=openebs-cstor`,
+		"-nopenebs",
+		"-o", `jsonpath={range .items[*]}{.metadata.labels.openebs\.io/persistent-volume}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}`))
+
+	return getKubectlOutput(ctx, args)
+}
+
+// TODO make generic
+// getKubectlOutput
+// expects a kubectl command that returns one ro more lines of key values
+func getKubectlOutput(ctx context.Context, args []string) (map[string]string, error) {
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 
 	cmd.Stderr = utils.NewStderrLogger(log.WithField("cmd", "kubectl get pods"))
@@ -190,41 +210,6 @@ func GetOpenEBSPoolsVersions(ctx context.Context) (map[string]string, error) {
 
 	spew.Dump(poolsAndVersions)
 	return poolAndVersion, nil
-}
-
-// GetOpenEBSPoolsVersions returns internal IP addresses of all nodes in the cluster
-func GetOpenEBSVolumesVersions(ctx context.Context) (map[string]string, error) {
-	// sudo kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-volume-manager,openebs\.io/storage-class=openebs-cstor  -nopenebs -o  jsonpath='{range .items[*]}{.metadata.labels.openebs\.io/persistent-volume}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}'
-	args := utils.PlanetCommand(Command("get", "pods",
-		"--field-selector", "status.phase=Running",
-		"--selector", "app=cstor-volume-manager,openebs\\.io/storage-class=openebs-cstor",
-		"-nopenebs",
-		"-o", `jsonpath={range .items[*]}{.metadata.labels.openebs\.io/persistent-volume}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}`))
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
-
-	cmd.Stderr = utils.NewStderrLogger(log.WithField("cmd", "kubectl get openebs volume pods"))
-
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, trace.Wrap(err, "%v : %v", cmd, err)
-	}
-
-	volumesAndVersions := strings.Split(string(out), "\n")
-	spew.Dump(volumesAndVersions)
-
-	// TODO remove duplication with above
-	volumeAndVersion := make(map[string]string)
-	for _, volumeAndVer := range volumesAndVersions {
-		vav := strings.Split(volumeAndVer, " ")
-		if len(vav) != 2 {
-			continue
-		}
-
-		volumeAndVersion[vav[0]] = vav[1]
-	}
-
-	spew.Dump(volumeAndVersion)
-	return volumeAndVersion, nil
 }
 
 // WithPrivilegedConfig returns a command option to specify a privileged kubeconfig
