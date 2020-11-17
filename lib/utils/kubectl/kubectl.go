@@ -173,9 +173,10 @@ func GetOpenEBSPoolsVersions(ctx context.Context) (map[string]string, error) {
 func GetOpenEBSVolumesVersions(ctx context.Context) (map[string]string, error) {
 	// sudo kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-volume-manager,openebs\.io/storage-class=openebs-cstor  -nopenebs -o  jsonpath='{range .items[*]}{.metadata.labels.openebs\.io/persistent-volume}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}'
 	//		"--selector", `app=cstor-volume-manager,openebs.io/storage-class=openebs-cstor`,
+	// !!! WORKS -> 		"--selector", `openebs.io/storage-class=openebs-cstor`,
 	args := utils.PlanetCommand(Command("get", "pods",
 		"--field-selector", "status.phase=Running",
-		"--selector", `openebs.io/storage-class=openebs-cstor`,
+		"--selector", `app=cstor-volume-manager,openebs.io/storage-class=openebs-cstor`,
 		"-nopenebs",
 		"-o", `jsonpath={range .items[*]}{.metadata.labels.openebs\.io/persistent-volume}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}`))
 

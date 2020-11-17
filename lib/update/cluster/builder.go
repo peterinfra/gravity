@@ -361,8 +361,8 @@ func (r phaseBuilder) openEBSUpgrade(fromVersion string, root *update.Phase) err
 		}
 
 		upgradeVolume := update.Phase{
-			ID:          fmt.Sprintf("openebs-upgrade-volume-%v", v),
-			Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", v),
+			ID:          fmt.Sprintf("openebs-upgrade-volume-%v", k),
+			Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", k),
 			Executor:    updateOpenEBSVolume,
 			Data:        &storage.OperationPhaseData{Data: k + " " + v},
 		}
