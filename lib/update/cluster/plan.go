@@ -420,7 +420,7 @@ func newOperationPlan(p planConfig) (*storage.OperationPlan, error) {
 		if p.installedApp.Manifest.OpenEBSEnabled() {
 			for _, update := range runtimeUpdates {
 				if update.Name == constants.StorageAppPackage {
-					err := builder.openEBSUpgrade(update.Version, &root)
+					err := builder.openEBSDataPlaneUpgrade(update.Version, &root)
 					if err != nil {
 						return nil, trace.Wrap(err)
 					}
