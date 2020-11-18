@@ -79,7 +79,7 @@ type PoolUpgrade struct {
 }
 
 func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context, pool string, version string) error {
-	jobName := "cstor-spc-" + string(time.Now().Unix())
+	jobName := fmt.Sprintf("cstor-spc-%v", time.Now().Unix())
 	out, err := execUpgradeJob(ctx, poolUpgradeTemplate, &PoolUpgrade{FromVersion: version, Pool: pool, UpgradeJobName: jobName}, jobName, p.Client)
 	if out != "" {
 		p.Infof("OpenEBS pool upgrade job output: %v", out)
@@ -207,7 +207,7 @@ type VolumeUpgrade struct {
 }
 
 func (p *PhaseUpgradeVolumes) execVolumeUpgradeCmd(ctx context.Context, volume string, fromVersion string) error {
-	jobName := "cstor-vol-" + string(time.Now().Unix())
+	jobName := fmt.Sprintf("cstor-vol-%v", time.Now().Unix())
 	out, err := execUpgradeJob(ctx, volumeUpgradeTemplate, &VolumeUpgrade{FromVersion: fromVersion, Volume: volume, UpgradeJobName: jobName}, jobName, p.Client)
 	if out != "" {
 		p.Infof("OpenEBS volume upgrade job output: %v", out)
