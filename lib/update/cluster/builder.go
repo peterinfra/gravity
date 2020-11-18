@@ -293,7 +293,7 @@ func (r phaseBuilder) openEBSDataPlaneUpgrade(storageAppVersion string, root *up
 			ID:          fmt.Sprintf("openebs-upgrade-pool-%v", k),
 			Description: fmt.Sprintf("Upgrade OpenEBS cStor pool: %v", k),
 			Executor:    updateOpenEBSPool,
-			Data:        &storage.OperationPhaseData{Data: k + " " + v + " " + toVer},
+			Data:        &storage.OperationPhaseData{Data: buildOpenEBSUpgradePhaseData(k, v, toVer)},
 		}
 		root.AddSequential(upgradeVolume)
 	}
@@ -313,21 +313,26 @@ func (r phaseBuilder) openEBSDataPlaneUpgrade(storageAppVersion string, root *up
 			ID:          fmt.Sprintf("openebs-upgrade-volume-%v", k),
 			Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", k),
 			Executor:    updateOpenEBSVolume,
-			Data:        &storage.OperationPhaseData{Data: k + " " + v + " " + toVer},
+			Data:        &storage.OperationPhaseData{Data: buildOpenEBSUpgradePhaseData(k, v, toVer)},
 		}
 		root.AddSequential(upgradeVolume)
 	}
 
 	// TEMP test phase that wil fail in order to test rollbacks
-	upgradeVolume := update.Phase{
-		ID:          "openebs-upgrade-volume-not_existent_volume",
-		Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", "not_existent_volume 1.1.0"),
-		Executor:    updateOpenEBSVolume,
-		Data:        &storage.OperationPhaseData{Data: "not_existent_volume 1.1.0"},
-	}
-	root.AddSequential(upgradeVolume)
-
+	/*
+		upgradeVolume := update.Phase{
+			ID:          "openebs-upgrade-volume-not_existent_volume",
+			Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", "not_existent_volume 1.1.0"),
+			Executor:    updateOpenEBSVolume,
+			Data:        &storage.OperationPhaseData{Data: "not_existent_volume 1.1.0"},
+		}
+		root.AddSequential(upgradeVolume)
+	*/
 	return nil
+}
+
+func buildOpenEBSUpgradePhaseData(dataPlaneComponent string, fromVer string, toVer string) string {
+	return dataPlaneComponent + " " + fromVer + " " + toVer
 }
 
 func openEBSDataPlaneComponentToVersion(storageAppVersion string, openEBSComponentName string, openEBSComponentFromVersion string) string {
