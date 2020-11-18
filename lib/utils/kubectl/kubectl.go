@@ -98,7 +98,11 @@ func Apply(fileName string) ([]byte, error) {
 		}
 	*/
 
-	return Run("apply", "-f", fileName)
+	//return Run("apply", "-f", fileName)
+
+	cmd := Command("apply", "-f", fileName)
+
+	return exec.Command(cmd.command, cmd.args...).CombinedOutput()
 }
 
 // GetNamespaces fetches the names of all namespaces
