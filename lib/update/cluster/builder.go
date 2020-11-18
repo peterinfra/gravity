@@ -18,6 +18,7 @@ package cluster
 
 import (
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"sort"
 	"strconv"
 	"strings"
@@ -301,7 +302,7 @@ func (r phaseBuilder) openEBSDataPlaneUpgrade(storageAppVersion string, root *up
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
+	spew.Dump(vv)
 	for k, v := range vv {
 		toVer := openEBSDataPlaneComponentToVersion(storageAppVersion, k, v)
 		if toVer == "" {
@@ -330,6 +331,7 @@ func (r phaseBuilder) openEBSDataPlaneUpgrade(storageAppVersion string, root *up
 }
 
 func openEBSDataPlaneComponentToVersion(storageAppVersion string, openEBSComponentName string, openEBSComponentFromVersion string) string {
+	spew.Dump(storageAppVersion, openEBSComponentName, openEBSComponentFromVersion)
 	if storageAppVersion == "0.0.4" {
 		correspondingOpenEBSDataPlaneComponentVer := "2.2.0"
 
