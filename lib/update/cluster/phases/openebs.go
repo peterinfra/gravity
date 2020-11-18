@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/fsm"
@@ -36,7 +37,7 @@ import (
 )
 
 // Upgrade OpenEBS
-// Following the steps from the OpenEBS' web site;
+// Following the upgrade steps from the OpenEBS web site:
 // https://github.com/openebs/openebs/blob/master/k8s/upgrades/README.md
 
 // PhaseUpgradePool backs up etcd data on all servers
@@ -63,8 +64,6 @@ func NewPhaseUpgradePool(phase storage.OperationPhase, client *kubernetes.Client
 }
 
 func (p *PhaseUpgradePool) Execute(ctx context.Context) error {
-	p.Info("Upgrading OpenEBS poolsAndVersion.")
-
 	err := p.execPoolUpgradeCmd(ctx, p.Pool, p.PoolFromVersion)
 	if err != nil {
 		return trace.Wrap(err)
@@ -74,12 +73,14 @@ func (p *PhaseUpgradePool) Execute(ctx context.Context) error {
 }
 
 type PoolUpgrade struct {
-	FromVersion string
-	Pool        string
+	FromVersion    string
+	Pool           string
+	UpgradeJobName string
 }
 
 func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context, pool string, version string) error {
-	out, err := execUpgradeJob(ctx, poolUpgradeTemplate, &PoolUpgrade{FromVersion: version, Pool: pool}, "cstor-spc-1170220", p.Client)
+	jobName := "cstor-spc-" + string(time.Now().Unix())
+	out, err := execUpgradeJob(ctx, poolUpgradeTemplate, &PoolUpgrade{FromVersion: version, Pool: pool, UpgradeJobName: jobName}, jobName, p.Client)
 	if out != "" {
 		p.Infof("OpenEBS pool upgrade job output: %v", out)
 	}
@@ -103,7 +104,7 @@ func (*PhaseUpgradePool) PostCheck(context.Context) error {
 	return nil
 }
 
-// The upgrade jobs are taken from the following OpenEBS's upgrade procedure:
+// The upgrade jobs are taken from the following OpenEBS upgrade procedure:
 // https://github.com/openebs/openebs/blob/master/k8s/upgrades/README.md
 var poolUpgradeTemplate = template.Must(template.New("upgradePool").Parse(`
 #This is an example YAML for upgrading cstor SPC.
@@ -117,7 +118,7 @@ metadata:
   #VERIFY that you have provided a unique name for this upgrade job.
   #The name can be any valid K8s string for name. This example uses
   #the following convention: cstor-spc-<flattened-from-to-versions>
-  name: cstor-spc-1170220
+  name: {{.UpgradeJobName}}
 
   #VERIFY the value of namespace is same as the namespace where openebs components
   # are installed. You can verify using the command:
@@ -191,8 +192,6 @@ func NewPhaseUpgradeVolume(phase storage.OperationPhase, client *kubernetes.Clie
 }
 
 func (p *PhaseUpgradeVolumes) Execute(ctx context.Context) error {
-	p.Info("Upgrading OpenEBS volumes.")
-
 	err := p.execVolumeUpgradeCmd(ctx, p.Volume, p.VolumeFromVersion)
 	if err != nil {
 		return trace.Wrap(err)
@@ -202,12 +201,14 @@ func (p *PhaseUpgradeVolumes) Execute(ctx context.Context) error {
 }
 
 type VolumeUpgrade struct {
-	FromVersion string
-	Volume      string
+	FromVersion    string
+	Volume         string
+	UpgradeJobName string
 }
 
 func (p *PhaseUpgradeVolumes) execVolumeUpgradeCmd(ctx context.Context, volume string, fromVersion string) error {
-	out, err := execUpgradeJob(ctx, volumeUpgradeTemplate, &VolumeUpgrade{FromVersion: fromVersion, Volume: volume}, "cstor-vol-170220", p.Client)
+	jobName := "cstor-vol-" + string(time.Now().Unix())
+	out, err := execUpgradeJob(ctx, volumeUpgradeTemplate, &VolumeUpgrade{FromVersion: fromVersion, Volume: volume, UpgradeJobName: jobName}, jobName, p.Client)
 	if out != "" {
 		p.Infof("OpenEBS volume upgrade job output: %v", out)
 	}
@@ -237,7 +238,7 @@ func execUpgradeJob(ctx context.Context, template *template.Template, templateDa
 	//if err := utils.Exec(exec.Command("/bin/bash", "-c", fmt.Sprintf("kubectl apply -f %v", upgradeJobFile)), &kubectlJobOut); err != nil {
 	kubectlJobOut, err := kubectl.Apply(upgradeJobFile)
 	if err != nil {
-		return fmt.Sprintf("Failed to upgrade openEBS data plane component. Output %v:", string(kubectlJobOut)), trace.Wrap(err)
+		return fmt.Sprintf("Failed to upgrade openEBS data plane component. Output: %v", string(kubectlJobOut)), trace.Wrap(err)
 	}
 
 	/*
@@ -280,7 +281,7 @@ metadata:
   #VERIFY that you have provided a unique name for this upgrade job.
   #The name can be any valid K8s string for name. This example uses
   #the following convention: cstor-vol-<flattened-from-to-versions>
-  name: cstor-vol-170220
+  name: {{.UpgradeJobName}}
 
   #VERIFY the value of namespace is same as the namespace
   # where openebs components
