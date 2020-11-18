@@ -237,7 +237,7 @@ func execUpgradeJob(ctx context.Context, template *template.Template, templateDa
 	//if err := utils.Exec(exec.Command("/bin/bash", "-c", fmt.Sprintf("kubectl apply -f %v", upgradeJobFile)), &kubectlJobOut); err != nil {
 	kubectlJobOut, err := kubectl.Apply(upgradeJobFile)
 	if err != nil {
-		return fmt.Sprintf("Failed volume upgrade k8s exec command. Got output %v:", kubectlJobOut), trace.Wrap(err)
+		return fmt.Sprintf("Failed to upgrade openEBS data plane component. Output %v:", string(kubectlJobOut)), trace.Wrap(err)
 	}
 
 	/*
