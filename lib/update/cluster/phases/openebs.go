@@ -20,14 +20,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"github.com/gravitational/gravity/lib/app/hooks"
-	"github.com/gravitational/gravity/lib/storage"
-	"os/exec"
 	"strings"
 	"text/template"
 
+	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/fsm"
+	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
+	"github.com/gravitational/gravity/lib/utils/kubectl"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -65,7 +65,7 @@ func NewPhaseUpgradePool(phase storage.OperationPhase, client *kubernetes.Client
 func (p *PhaseUpgradePool) Execute(ctx context.Context) error {
 	p.Info("Upgrading OpenEBS poolsAndVersion.")
 
-	err := p.executePoolUpgradeCmd(ctx, p.Pool, p.PoolFromVersion)
+	err := p.execPoolUpgradeCmd(ctx, p.Pool, p.PoolFromVersion)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -78,37 +78,15 @@ type PoolUpgrade struct {
 	Pool        string
 }
 
-func (p *PhaseUpgradePool) executePoolUpgradeCmd(ctx context.Context, pool string, version string) error {
-	var buf bytes.Buffer
-	err := poolUpgradeTemplate.Execute(&buf, &PoolUpgrade{FromVersion: version, Pool: pool})
+func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context, pool string, version string) error {
+	out, err := execUpgradeJob(ctx, poolUpgradeTemplate, &PoolUpgrade{FromVersion: version, Pool: pool}, "cstor-spc-1170220", p.Client)
+	if out != "" {
+		p.Infof("OpenEBS pool upgrade job output: %v", out)
+	}
+
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	poolUpgradeJob := "cstor_pool_upgrade.yaml"
-
-	err = ioutil.WriteFile(poolUpgradeJob, buf.Bytes(), 0644)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	var out bytes.Buffer
-	if err := utils.Exec(exec.Command("/bin/bash", "-c", fmt.Sprintf("kubectl apply -f %v", poolUpgradeJob)), &out); err != nil {
-		p.Errorf("Failed pool upgrade k8s exec command. Got output %v:", out.String())
-		return trace.Wrap(err)
-	}
-
-	runner, err := hooks.NewRunner(p.Client)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	upgradeJobLog := utils.NewSyncBuffer()
-	err = runner.StreamLogs(ctx, hooks.JobRef{Name: "cstor-spc-1170220", Namespace: "openebs"}, upgradeJobLog)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-	p.Infof(" Got upgrade job logs: %v", upgradeJobLog.String())
 
 	return nil
 }
@@ -202,6 +180,7 @@ type PhaseUpgradeVolumes struct {
 func NewPhaseUpgradeVolume(phase storage.OperationPhase, client *kubernetes.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 
 	volAndVer := strings.Split(phase.Data.Data, " ")
+
 	return &PhaseUpgradeVolumes{
 		FieldLogger:       logger,
 		Client:            client,
@@ -214,7 +193,7 @@ func NewPhaseUpgradeVolume(phase storage.OperationPhase, client *kubernetes.Clie
 func (p *PhaseUpgradeVolumes) Execute(ctx context.Context) error {
 	p.Info("Upgrading OpenEBS volumes.")
 
-	err := p.executeVolumeUpgradeCmd(ctx, p.Volume, p.VolumeFromVersion)
+	err := p.execVolumeUpgradeCmd(ctx, p.Volume, p.VolumeFromVersion)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -227,44 +206,66 @@ type VolumeUpgrade struct {
 	Volume      string
 }
 
-func (p *PhaseUpgradeVolumes) executeVolumeUpgradeCmd(ctx context.Context, volume string, fromVersion string) error {
+func (p *PhaseUpgradeVolumes) execVolumeUpgradeCmd(ctx context.Context, volume string, fromVersion string) error {
+	out, err := execUpgradeJob(ctx, volumeUpgradeTemplate, &VolumeUpgrade{FromVersion: fromVersion, Volume: volume}, "cstor-vol-170220", p.Client)
+	if out != "" {
+		p.Infof("OpenEBS volume upgrade job output: %v", out)
+	}
+
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
+}
+
+func execUpgradeJob(ctx context.Context, template *template.Template, templateData interface{}, jobName string, client *kubernetes.Clientset) (string, error) {
 	var buf bytes.Buffer
-	err := volumeUpgradeTemplate.Execute(&buf, &VolumeUpgrade{FromVersion: fromVersion, Volume: volume})
+	err := template.Execute(&buf, templateData)
 	if err != nil {
-		return trace.Wrap(err)
+		return "", trace.Wrap(err)
 	}
 
-	volumeUpgradeJob := "cstor_volume_upgrade.yaml"
-	err = ioutil.WriteFile(volumeUpgradeJob, buf.Bytes(), 0644)
+	upgradeJobFile := "openebs_data_plane_component_upgrade.yaml"
+	err = ioutil.WriteFile(upgradeJobFile, buf.Bytes(), 0644)
 	if err != nil {
-		return trace.Wrap(err)
+		return "", trace.Wrap(err)
 	}
 
-	var out bytes.Buffer
-	if err := utils.Exec(exec.Command("/bin/bash", "-c", fmt.Sprintf("kubectl apply -f %v", volumeUpgradeJob)), &out); err != nil {
-		p.Errorf("Failed volume upgrade k8s exec command. Got output %v:", out.String())
-		return trace.Wrap(err)
+	//var out bytes.Buffer
+	//var kubectlJobOut bytes.Buffer
+	//if err := utils.Exec(exec.Command("/bin/bash", "-c", fmt.Sprintf("kubectl apply -f %v", upgradeJobFile)), &kubectlJobOut); err != nil {
+	kubectlJobOut, err := kubectl.Apply(upgradeJobFile)
+	if err != nil {
+		return fmt.Sprintf("Failed volume upgrade k8s exec command. Got output %v:", kubectlJobOut), trace.Wrap(err)
 	}
 
-	runner, err := hooks.NewRunner(p.Client)
+	/*
+		if err := utils.Exec(exec.Command("/bin/bash", "-c", fmt.Sprintf("kubectl apply -f %v", upgradeJobFile)), &kubectlJobOut); err != nil {
+			out.WriteString(fmt.Sprintf("Failed volume upgrade k8s exec command. Got output %v:", kubectlJobOut.String()))
+			return out.String(), trace.Wrap(err)
+		}
+
+	*/
+
+	runner, err := hooks.NewRunner(client)
 	if err != nil {
-		return trace.Wrap(err)
+		return "", trace.Wrap(err)
 	}
 
-	err = runner.Wait(ctx, hooks.JobRef{Name: "cstor-vol-170220", Namespace: "openebs"})
+	namespace := "openebs"
+	err = runner.Wait(ctx, hooks.JobRef{Name: jobName, Namespace: namespace})
 	if err != nil {
-		return trace.Wrap(err)
+		return "", trace.Wrap(err)
 	}
 
 	upgradeJobLog := utils.NewSyncBuffer()
-	err = runner.StreamLogs(ctx, hooks.JobRef{Name: "cstor-vol-170220", Namespace: "openebs"}, upgradeJobLog)
+	err = runner.StreamLogs(ctx, hooks.JobRef{Name: jobName, Namespace: namespace}, upgradeJobLog)
 	if err != nil {
-		return trace.Wrap(err)
+		return "", trace.Wrap(err)
 	}
 
-	p.Infof("Got upgrade job logs: %v", upgradeJobLog.String())
-
-	return nil
+	return upgradeJobLog.String(), nil
 }
 
 var volumeUpgradeTemplate = template.Must(template.New("upgradeVolumes").Parse(`
