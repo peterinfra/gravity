@@ -20,13 +20,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"strings"
+	"text/template"
+
 	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/utils/kubectl"
-	"strings"
-	"text/template"
 
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"

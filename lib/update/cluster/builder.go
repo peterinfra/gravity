@@ -22,7 +22,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
@@ -33,6 +32,7 @@ import (
 	"github.com/gravitational/gravity/lib/utils/kubectl"
 
 	"github.com/coreos/go-semver/semver"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"

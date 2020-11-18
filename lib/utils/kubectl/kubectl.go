@@ -84,22 +84,6 @@ func RunCommand(cmd *Cmd, options ...optionSetter) ([]byte, error) {
 }
 
 func Apply(fileName string) ([]byte, error) {
-	/*
-		log.Debugf("executing %v", cmd)
-		for _, option := range options {
-			option(cmd)
-		}
-
-		return exec.Command(cmd.command, cmd.args...).CombinedOutput()
-
-		if err := utils.Exec(exec.Command("/bin/bash", "-c", fmt.Sprintf("kubectl apply -f %v", upgradeJobFile)), &kubectlJobOut); err != nil {
-			out.WriteString(fmt.Sprintf("Failed volume upgrade k8s exec command. Got output %v:", kubectlJobOut.String()))
-			return out.String(), trace.Wrap(err)
-		}
-	*/
-
-	//return Run("apply", "-f", fileName)
-
 	cmd := Command("apply", "-f", fileName)
 
 	return exec.Command(cmd.command, cmd.args...).CombinedOutput()
