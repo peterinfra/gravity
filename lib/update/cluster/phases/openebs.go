@@ -20,17 +20,16 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"strings"
-	"text/template"
-	"time"
-
 	"github.com/gravitational/gravity/lib/app/hooks"
 	"github.com/gravitational/gravity/lib/fsm"
 	"github.com/gravitational/gravity/lib/storage"
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/gravity/lib/utils/kubectl"
+	"strings"
+	"text/template"
 
 	"github.com/gravitational/trace"
+	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"k8s.io/client-go/kubernetes"
@@ -80,7 +79,7 @@ type PoolUpgrade struct {
 }
 
 func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context) error {
-	jobName := fmt.Sprintf("cstor-spc-%v", time.Now().Unix())
+	jobName := fmt.Sprintf("cstor-%v-%v", p.Pool, uuid.New()[:28])
 	out, err := execUpgradeJob(ctx, poolUpgradeTemplate, &PoolUpgrade{Pool: p.Pool,
 		FromVersion: p.FromVersion, ToVersion: p.ToVersion, UpgradeJobName: jobName}, jobName, p.Client)
 	if out != "" {
@@ -95,6 +94,9 @@ func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context) error {
 }
 
 func (p *PhaseUpgradePool) Rollback(context.Context) error {
+	p.Warnf("Skipping rollback of OpenEBS pool %v because rollback is not supported by OpenEBS"+
+		" for upgrade path: fromVersion=%v -> toVersion=%v ", p.Pool, p.FromVersion, p.ToVersion)
+
 	return nil
 }
 
@@ -118,8 +120,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   #VERIFY that you have provided a unique name for this upgrade job.
-  #The name can be any valid K8s string for name. This example uses
-  #the following convention: cstor-spc-<flattened-from-to-versions>
+  #The name can be any valid K8s string for name. 
   name: {{.UpgradeJobName}}
 
   #VERIFY the value of namespace is same as the namespace where openebs components
@@ -210,7 +211,7 @@ type VolumeUpgrade struct {
 }
 
 func (p *PhaseUpgradeVolumes) execVolumeUpgradeCmd(ctx context.Context) error {
-	jobName := fmt.Sprintf("cstor-vol-%v", time.Now().Unix())
+	jobName := fmt.Sprintf("cstor-%v-%v", p.Volume, uuid.New()[:28])
 	out, err := execUpgradeJob(ctx, volumeUpgradeTemplate, &VolumeUpgrade{Volume: p.Volume,
 		FromVersion: p.FromVersion, ToVersion: p.ToVersion, UpgradeJobName: jobName}, jobName, p.Client)
 	if out != "" {
@@ -272,8 +273,7 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   #VERIFY that you have provided a unique name for this upgrade job.
-  #The name can be any valid K8s string for name. This example uses
-  #the following convention: cstor-vol-<flattened-from-to-versions>
+  #The name can be any valid K8s string for name. 
   name: {{.UpgradeJobName}}
 
   #VERIFY the value of namespace is same as the namespace
@@ -328,6 +328,9 @@ spec:
 `))
 
 func (p *PhaseUpgradeVolumes) Rollback(context.Context) error {
+	p.Warnf("Skipping rollback of OpenEBS volume %v because rollback is not supported by OpenEBS"+
+		" for upgrade path: fromVersion=%v -> toVersion=%v ", p.Volume, p.FromVersion, p.ToVersion)
+
 	return nil
 }
 
