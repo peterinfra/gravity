@@ -45,26 +45,26 @@ type PhaseUpgradePool struct {
 	// FieldLogger is used for logging
 	log.FieldLogger
 	// Client is an API client to the kubernetes API
-	Client          *kubernetes.Clientset
-	Pool            string
-	PoolFromVersion string
-	PoolToVersion   string
+	Client      *kubernetes.Clientset
+	Pool        string
+	FromVersion string
+	ToVersion   string
 }
 
 func NewPhaseUpgradePool(phase storage.OperationPhase, client *kubernetes.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 
 	poolAndVer := strings.Split(phase.Data.Data, " ")
 	return &PhaseUpgradePool{
-		FieldLogger:     logger,
-		Client:          client,
-		Pool:            poolAndVer[0],
-		PoolFromVersion: poolAndVer[1],
-		PoolToVersion:   poolAndVer[2],
+		FieldLogger: logger,
+		Client:      client,
+		Pool:        poolAndVer[0],
+		FromVersion: poolAndVer[1],
+		ToVersion:   poolAndVer[2],
 	}, nil
 }
 
 func (p *PhaseUpgradePool) Execute(ctx context.Context) error {
-	err := p.execPoolUpgradeCmd(ctx, p.Pool, p.PoolFromVersion)
+	err := p.execPoolUpgradeCmd(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -73,14 +73,16 @@ func (p *PhaseUpgradePool) Execute(ctx context.Context) error {
 }
 
 type PoolUpgrade struct {
-	FromVersion    string
 	Pool           string
+	FromVersion    string
+	ToVersion      string
 	UpgradeJobName string
 }
 
-func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context, pool string, version string) error {
+func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context) error {
 	jobName := fmt.Sprintf("cstor-spc-%v", time.Now().Unix())
-	out, err := execUpgradeJob(ctx, poolUpgradeTemplate, &PoolUpgrade{FromVersion: version, Pool: pool, UpgradeJobName: jobName}, jobName, p.Client)
+	out, err := execUpgradeJob(ctx, poolUpgradeTemplate, &PoolUpgrade{Pool: p.Pool,
+		FromVersion: p.FromVersion, ToVersion: p.ToVersion, UpgradeJobName: jobName}, jobName, p.Client)
 	if out != "" {
 		p.Infof("OpenEBS pool upgrade job output: %v", out)
 	}
@@ -141,7 +143,7 @@ spec:
         - "--from-version={{.FromVersion}}"
 
         # --to-version is the version desired upgrade version
-        - "--to-version=2.2.0"
+        - "--to-version={{.ToVersion}}"
 
         # Bulk upgrade is supported
         # To make use of it, please provide the list of SPCs
@@ -161,7 +163,7 @@ spec:
 
         # the image version should be same as the --to-version mentioned above
         # in the args of the job
-        image: openebs/m-upgrade:2.2.0
+        image: openebs/m-upgrade:{{.ToVersion}}
         imagePullPolicy: Always
       restartPolicy: Never
 ---
@@ -172,10 +174,10 @@ type PhaseUpgradeVolumes struct {
 	// FieldLogger is used for logging
 	log.FieldLogger
 	// Client is an API client to the kubernetes API
-	Client            *kubernetes.Clientset
-	Volume            string
-	VolumeFromVersion string
-	VolumeToVersion   string
+	Client      *kubernetes.Clientset
+	Volume      string
+	FromVersion string
+	ToVersion   string
 }
 
 func NewPhaseUpgradeVolume(phase storage.OperationPhase, client *kubernetes.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
@@ -183,16 +185,16 @@ func NewPhaseUpgradeVolume(phase storage.OperationPhase, client *kubernetes.Clie
 	volAndVer := strings.Split(phase.Data.Data, " ")
 
 	return &PhaseUpgradeVolumes{
-		FieldLogger:       logger,
-		Client:            client,
-		Volume:            volAndVer[0],
-		VolumeFromVersion: volAndVer[1],
-		VolumeToVersion:   volAndVer[2],
+		FieldLogger: logger,
+		Client:      client,
+		Volume:      volAndVer[0],
+		FromVersion: volAndVer[1],
+		ToVersion:   volAndVer[2],
 	}, nil
 }
 
 func (p *PhaseUpgradeVolumes) Execute(ctx context.Context) error {
-	err := p.execVolumeUpgradeCmd(ctx, p.Volume, p.VolumeFromVersion)
+	err := p.execVolumeUpgradeCmd(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -201,14 +203,16 @@ func (p *PhaseUpgradeVolumes) Execute(ctx context.Context) error {
 }
 
 type VolumeUpgrade struct {
-	FromVersion    string
 	Volume         string
+	FromVersion    string
+	ToVersion      string
 	UpgradeJobName string
 }
 
-func (p *PhaseUpgradeVolumes) execVolumeUpgradeCmd(ctx context.Context, volume string, fromVersion string) error {
+func (p *PhaseUpgradeVolumes) execVolumeUpgradeCmd(ctx context.Context) error {
 	jobName := fmt.Sprintf("cstor-vol-%v", time.Now().Unix())
-	out, err := execUpgradeJob(ctx, volumeUpgradeTemplate, &VolumeUpgrade{FromVersion: fromVersion, Volume: volume, UpgradeJobName: jobName}, jobName, p.Client)
+	out, err := execUpgradeJob(ctx, volumeUpgradeTemplate, &VolumeUpgrade{Volume: p.Volume,
+		FromVersion: p.FromVersion, ToVersion: p.ToVersion, UpgradeJobName: jobName}, jobName, p.Client)
 	if out != "" {
 		p.Infof("OpenEBS volume upgrade job output: %v", out)
 	}
@@ -233,21 +237,10 @@ func execUpgradeJob(ctx context.Context, template *template.Template, templateDa
 		return "", trace.Wrap(err)
 	}
 
-	//var out bytes.Buffer
-	//var kubectlJobOut bytes.Buffer
-	//if err := utils.Exec(exec.Command("/bin/bash", "-c", fmt.Sprintf("kubectl apply -f %v", upgradeJobFile)), &kubectlJobOut); err != nil {
 	kubectlJobOut, err := kubectl.Apply(upgradeJobFile)
 	if err != nil {
 		return fmt.Sprintf("Failed to upgrade openEBS data plane component. Output: %v", string(kubectlJobOut)), trace.Wrap(err)
 	}
-
-	/*
-		if err := utils.Exec(exec.Command("/bin/bash", "-c", fmt.Sprintf("kubectl apply -f %v", upgradeJobFile)), &kubectlJobOut); err != nil {
-			out.WriteString(fmt.Sprintf("Failed volume upgrade k8s exec command. Got output %v:", kubectlJobOut.String()))
-			return out.String(), trace.Wrap(err)
-		}
-
-	*/
 
 	runner, err := hooks.NewRunner(client)
 	if err != nil {
@@ -308,7 +301,7 @@ spec:
             - "--from-version={{.FromVersion}}"
 
             # --to-version is the version desired upgrade version
-            - "--to-version=2.2.0"
+            - "--to-version={{.ToVersion}}"
 
             # Bulk upgrade is supported from 1.9
             # To make use of it, please provide the list of PVs
@@ -328,7 +321,7 @@ spec:
 
           # the image version should be same as the --to-version mentioned above
           # in the args of the job
-          image: quay.io/openebs/m-upgrade:2.2.0
+          image: quay.io/openebs/m-upgrade:{{.ToVersion}}
           imagePullPolicy: Always
       restartPolicy: Never
 ---
