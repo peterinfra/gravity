@@ -18,11 +18,11 @@ package cluster
 
 import (
 	"fmt"
-	"github.com/davecgh/go-spew/spew"
 	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/gravitational/gravity/lib/constants"
 	"github.com/gravitational/gravity/lib/defaults"
 	"github.com/gravitational/gravity/lib/loc"
