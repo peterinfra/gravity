@@ -84,9 +84,9 @@ const (
 	cleanupNode = "cleanup_node"
 	// openebs is the phase that creates OpenEBS configuration
 	openebs = "openebs"
-	// updateOpenEBSVolume is the phase to upgrade OpenEBS volumes
+	// updateOpenEBSVolume upgrades OpenEBS volumes
 	updateOpenEBSVolume = "openebs_upgrade_volume"
-	// updateOpenEBSPool is the phase to upgrade OpenEBS pools
+	// updateOpenEBSPool upgrades OpenEBS pools
 	updateOpenEBSPool = "openebs_upgrade_pool"
 )
 

@@ -256,10 +256,10 @@ func getLabelNamespace(key string) string {
 }
 
 // MakeJobName generates a unique job name.
-// k8s job names must be no more than 63 characters.
+// k8s job names must be no more than 63 characters long.
 // Expects that the prefix param will not be longer that 5 characters.
 // The name param will be truncated if longer than 40 characters.
-// Appends unique random string taken from UUID.
+// Appends a short random string taken from UUID.
 func MakeJobName(prefix string, name string) string {
 	maxNameLen := 40
 	if len(name) > maxNameLen {

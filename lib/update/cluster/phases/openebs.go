@@ -37,8 +37,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// Upgrade OpenEBS data plane components.
-// Following the upgrade steps from the OpenEBS web site:
+// Upgrades OpenEBS data plane components.
+// Follows the upgrade steps as described at:
 // https://github.com/openebs/openebs/blob/master/k8s/upgrades/README.md
 
 const (
@@ -59,7 +59,6 @@ type PhaseUpgradePool struct {
 
 // NewPhaseUpgradePool creates a pool upgrade phase
 func NewPhaseUpgradePool(phase storage.OperationPhase, client *kubernetes.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
-
 	poolAndVer := strings.Split(phase.Data.Data, " ")
 	return &PhaseUpgradePool{
 		FieldLogger: logger,
@@ -146,13 +145,13 @@ func execUpgradeJob(ctx context.Context, template *template.Template, templateDa
 
 // Rollback gets executed when a rollback is requested
 func (p *PhaseUpgradePool) Rollback(context.Context) error {
-	p.Warnf(rollbackNotSupported("pool"), p.Pool, p.FromVersion, p.ToVersion)
+	p.Warnf(rollbackNotSupported(), "pool", p.Pool, p.FromVersion, p.ToVersion)
 
 	return nil
 }
 
-func rollbackNotSupported(component string) string {
-	return "Skipping rollback of OpenEBS " + component + " %v because rollback is not supported by OpenEBS" +
+func rollbackNotSupported() string {
+	return "Skipping rollback of OpenEBS %v %v because rollback is not supported by OpenEBS" +
 		" for upgrade path: fromVersion=%v -> toVersion=%v "
 }
 
@@ -166,8 +165,8 @@ func (*PhaseUpgradePool) PostCheck(context.Context) error {
 	return nil
 }
 
-// PhaseUpgradeVolumes upgrades OpenEBS volumes
-type PhaseUpgradeVolumes struct {
+// PhaseUpgradeVolume upgrades OpenEBS volumes
+type PhaseUpgradeVolume struct {
 	// FieldLogger is used for logging
 	log.FieldLogger
 	// Client is an API client to the kubernetes API
@@ -180,8 +179,7 @@ type PhaseUpgradeVolumes struct {
 // NewPhaseUpgradeVolume creates a volume upgrade phase
 func NewPhaseUpgradeVolume(phase storage.OperationPhase, client *kubernetes.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	volAndVer := strings.Split(phase.Data.Data, " ")
-
-	return &PhaseUpgradeVolumes{
+	return &PhaseUpgradeVolume{
 		FieldLogger: logger,
 		Client:      client,
 		Volume:      volAndVer[0],
@@ -191,7 +189,7 @@ func NewPhaseUpgradeVolume(phase storage.OperationPhase, client *kubernetes.Clie
 }
 
 // Execute runs the upgrade steps
-func (p *PhaseUpgradeVolumes) Execute(ctx context.Context) error {
+func (p *PhaseUpgradeVolume) Execute(ctx context.Context) error {
 	err := p.execVolumeUpgradeCmd(ctx)
 	if err != nil {
 		return trace.Wrap(err)
@@ -208,7 +206,7 @@ type VolumeUpgrade struct {
 	JobName     string
 }
 
-func (p *PhaseUpgradeVolumes) execVolumeUpgradeCmd(ctx context.Context) error {
+func (p *PhaseUpgradeVolume) execVolumeUpgradeCmd(ctx context.Context) error {
 	jobName := utils.MakeJobName(k8sJobPrefix, p.Volume)
 	out, err := execUpgradeJob(ctx, volumeUpgradeTemplate, &VolumeUpgrade{Volume: p.Volume,
 		FromVersion: p.FromVersion, ToVersion: p.ToVersion, JobName: jobName}, jobName, p.Client)
@@ -223,19 +221,19 @@ func (p *PhaseUpgradeVolumes) execVolumeUpgradeCmd(ctx context.Context) error {
 }
 
 // Rollback gets executed when a rollback is requested
-func (p *PhaseUpgradeVolumes) Rollback(context.Context) error {
-	p.Warnf(rollbackNotSupported("volume"), p.Volume, p.FromVersion, p.ToVersion)
+func (p *PhaseUpgradeVolume) Rollback(context.Context) error {
+	p.Warnf(rollbackNotSupported(), "volume", p.Volume, p.FromVersion, p.ToVersion)
 
 	return nil
 }
 
 // PreCheck gets executed before the upgrade steps
-func (*PhaseUpgradeVolumes) PreCheck(ctx context.Context) error {
+func (*PhaseUpgradeVolume) PreCheck(ctx context.Context) error {
 	return nil
 }
 
 // PostCheck gets executed after the upgrade steps
-func (*PhaseUpgradeVolumes) PostCheck(context.Context) error {
+func (*PhaseUpgradeVolume) PostCheck(context.Context) error {
 	return nil
 }
 
