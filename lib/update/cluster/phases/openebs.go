@@ -57,6 +57,7 @@ type PhaseUpgradePool struct {
 	ToVersion   string
 }
 
+// NewPhaseUpgradePool creates a pool upgrade phase
 func NewPhaseUpgradePool(phase storage.OperationPhase, client *kubernetes.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 
 	poolAndVer := strings.Split(phase.Data.Data, " ")
@@ -69,6 +70,7 @@ func NewPhaseUpgradePool(phase storage.OperationPhase, client *kubernetes.Client
 	}, nil
 }
 
+// Execute runs the upgrade steps
 func (p *PhaseUpgradePool) Execute(ctx context.Context) error {
 	err := p.execPoolUpgradeCmd(ctx)
 	if err != nil {
@@ -78,17 +80,18 @@ func (p *PhaseUpgradePool) Execute(ctx context.Context) error {
 	return nil
 }
 
+// PoolUpgrade holds the info needed for pool upgrade
 type PoolUpgrade struct {
-	Pool           string
-	FromVersion    string
-	ToVersion      string
-	UpgradeJobName string
+	Pool        string
+	FromVersion string
+	ToVersion   string
+	JobName     string
 }
 
 func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context) error {
 	jobName := utils.MakeJobName(k8sJobPrefix, p.Pool)
 	out, err := execUpgradeJob(ctx, poolUpgradeTemplate, &PoolUpgrade{Pool: p.Pool,
-		FromVersion: p.FromVersion, ToVersion: p.ToVersion, UpgradeJobName: jobName}, jobName, p.Client)
+		FromVersion: p.FromVersion, ToVersion: p.ToVersion, JobName: jobName}, jobName, p.Client)
 
 	p.Infof("OpenEBS pool upgrade job output: %v", out)
 
@@ -141,17 +144,24 @@ func execUpgradeJob(ctx context.Context, template *template.Template, templateDa
 	return upgradeJobLog.String(), nil
 }
 
+// Rollback gets executed when a rollback is requested
 func (p *PhaseUpgradePool) Rollback(context.Context) error {
-	p.Warnf("Skipping rollback of OpenEBS pool %v because rollback is not supported by OpenEBS"+
-		" for upgrade path: fromVersion=%v -> toVersion=%v ", p.Pool, p.FromVersion, p.ToVersion)
+	p.Warnf(rollbackNotSupported("pool"), p.Pool, p.FromVersion, p.ToVersion)
 
 	return nil
 }
 
+func rollbackNotSupported(component string) string {
+	return "Skipping rollback of OpenEBS " + component + " %v because rollback is not supported by OpenEBS" +
+		" for upgrade path: fromVersion=%v -> toVersion=%v "
+}
+
+// PreCheck gets executed before the upgrade steps
 func (*PhaseUpgradePool) PreCheck(ctx context.Context) error {
 	return nil
 }
 
+// PostCheck gets executed after the upgrade steps
 func (*PhaseUpgradePool) PostCheck(context.Context) error {
 	return nil
 }
@@ -167,6 +177,7 @@ type PhaseUpgradeVolumes struct {
 	ToVersion   string
 }
 
+// NewPhaseUpgradeVolume creates a volume upgrade phase
 func NewPhaseUpgradeVolume(phase storage.OperationPhase, client *kubernetes.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
 	volAndVer := strings.Split(phase.Data.Data, " ")
 
@@ -179,6 +190,7 @@ func NewPhaseUpgradeVolume(phase storage.OperationPhase, client *kubernetes.Clie
 	}, nil
 }
 
+// Execute runs the upgrade steps
 func (p *PhaseUpgradeVolumes) Execute(ctx context.Context) error {
 	err := p.execVolumeUpgradeCmd(ctx)
 	if err != nil {
@@ -188,17 +200,18 @@ func (p *PhaseUpgradeVolumes) Execute(ctx context.Context) error {
 	return nil
 }
 
+// VolumeUpgrade holds the info needed for volume upgrade
 type VolumeUpgrade struct {
-	Volume         string
-	FromVersion    string
-	ToVersion      string
-	UpgradeJobName string
+	Volume      string
+	FromVersion string
+	ToVersion   string
+	JobName     string
 }
 
 func (p *PhaseUpgradeVolumes) execVolumeUpgradeCmd(ctx context.Context) error {
 	jobName := utils.MakeJobName(k8sJobPrefix, p.Volume)
 	out, err := execUpgradeJob(ctx, volumeUpgradeTemplate, &VolumeUpgrade{Volume: p.Volume,
-		FromVersion: p.FromVersion, ToVersion: p.ToVersion, UpgradeJobName: jobName}, jobName, p.Client)
+		FromVersion: p.FromVersion, ToVersion: p.ToVersion, JobName: jobName}, jobName, p.Client)
 
 	p.Infof("OpenEBS volume upgrade job output: %v", out)
 
@@ -209,17 +222,19 @@ func (p *PhaseUpgradeVolumes) execVolumeUpgradeCmd(ctx context.Context) error {
 	return nil
 }
 
+// Rollback gets executed when a rollback is requested
 func (p *PhaseUpgradeVolumes) Rollback(context.Context) error {
-	p.Warnf("Skipping rollback of OpenEBS volume %v because rollback is not supported by OpenEBS"+
-		" for upgrade path: fromVersion=%v -> toVersion=%v ", p.Volume, p.FromVersion, p.ToVersion)
+	p.Warnf(rollbackNotSupported("volume"), p.Volume, p.FromVersion, p.ToVersion)
 
 	return nil
 }
 
+// PreCheck gets executed before the upgrade steps
 func (*PhaseUpgradeVolumes) PreCheck(ctx context.Context) error {
 	return nil
 }
 
+// PostCheck gets executed after the upgrade steps
 func (*PhaseUpgradeVolumes) PostCheck(context.Context) error {
 	return nil
 }
@@ -237,7 +252,7 @@ kind: Job
 metadata:
   #VERIFY that you have provided a unique name for this upgrade job.
   #The name can be any valid K8s string for name. 
-  name: {{.UpgradeJobName}}
+  name: {{.JobName}}
 
   #VERIFY the value of namespace is same as the namespace where openebs components
   # are installed. You can verify using the command:
@@ -297,7 +312,7 @@ kind: Job
 metadata:
   #VERIFY that you have provided a unique name for this upgrade job.
   #The name can be any valid K8s string for name. 
-  name: {{.UpgradeJobName}}
+  name: {{.JobName}}
 
   #VERIFY the value of namespace is same as the namespace
   # where openebs components

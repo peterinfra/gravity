@@ -273,11 +273,10 @@ func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) *update.Phase {
 	return &phase
 }
 
-// openEBSDataPlaneUpgrade checks if existing OpenEBS pools or volumes need to be upgraded
-// and creates upgrade steps
-func (r phaseBuilder) openEBSDataPlane(storageAppVersion string, root *update.Phase) error {
-
-	pv, err := kubectl.GetOpenEBSPoolsVersions(context.TODO())
+// openEBSDataPlane checks if existing OpenEBS pools or volumes need to be upgraded
+// and generates upgrade steps
+func (r phaseBuilder) openEBSDataPlane(ctx context.Context, storageAppVersion string, root *update.Phase) error {
+	pv, err := kubectl.GetOpenEBSPoolsVersions(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -289,15 +288,15 @@ func (r phaseBuilder) openEBSDataPlane(storageAppVersion string, root *update.Ph
 		}
 
 		upgradeVolume := update.Phase{
-			ID:          fmt.Sprintf("openebs-upgrade-pool-%v", k),
-			Description: fmt.Sprintf("Upgrade OpenEBS cStor pool: %v", k),
+			ID:          fmt.Sprintf("openebs-pool-%v", k),
+			Description: fmt.Sprintf("OpenEBS pool: %v", k),
 			Executor:    updateOpenEBSPool,
 			Data:        &storage.OperationPhaseData{Data: buildOpenEBSUpgradePhaseData(k, v, toVer)},
 		}
 		root.AddSequential(upgradeVolume)
 	}
 
-	vv, err := kubectl.GetOpenEBSVolumesVersions(context.TODO())
+	vv, err := kubectl.GetOpenEBSVolumesVersions(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
@@ -309,8 +308,8 @@ func (r phaseBuilder) openEBSDataPlane(storageAppVersion string, root *update.Ph
 		}
 
 		upgradeVolume := update.Phase{
-			ID:          fmt.Sprintf("openebs-upgrade-volume-%v", k),
-			Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", k),
+			ID:          fmt.Sprintf("openebs-volume-%v", k),
+			Description: fmt.Sprintf("OpenEBS volume: %v", k),
 			Executor:    updateOpenEBSVolume,
 			Data:        &storage.OperationPhaseData{Data: buildOpenEBSUpgradePhaseData(k, v, toVer)},
 		}
@@ -349,10 +348,10 @@ func openEBSDataPlaneComponentToVersion(storageAppVersion string, openEBSCompone
 		}
 
 		return correspondingOpenEBSDataPlaneComponentVer
-	} else {
-		log.Infof("Skipping upgrade of %v because of unsupported storageAppVersion=%v", storageAppVersion)
-		return ""
 	}
+
+	log.Infof("Skipping upgrade of %v because of unsupported storageAppVersion=%v", storageAppVersion)
+	return ""
 }
 
 func (r phaseBuilder) runtime(updates []loc.Locator) *update.Phase {
