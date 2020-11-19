@@ -19,6 +19,7 @@ package phases
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"text/template"
@@ -32,6 +33,7 @@ import (
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
@@ -41,6 +43,7 @@ import (
 
 const (
 	k8sJobPrefix = "cstor"
+	k8sNamespace = "openebs"
 )
 
 // PhaseUpgradePool backs up etcd data on all servers
@@ -242,9 +245,9 @@ func execUpgradeJob(ctx context.Context, template *template.Template, templateDa
 		return "", trace.Wrap(err)
 	}
 
-	kubectlJobOut, err := kubectl.Apply(upgradeJobFile)
+	out, err := kubectl.Apply(upgradeJobFile)
 	if err != nil {
-		return fmt.Sprintf("Failed to upgrade openEBS data plane component. Output: %v", string(kubectlJobOut)), trace.Wrap(err)
+		return fmt.Sprintf("Failed to exec kubectl: %v", string(out)), trace.Wrap(err)
 	}
 
 	runner, err := hooks.NewRunner(client)
@@ -252,16 +255,20 @@ func execUpgradeJob(ctx context.Context, template *template.Template, templateDa
 		return "", trace.Wrap(err)
 	}
 
-	namespace := "openebs"
-	err = runner.Wait(ctx, hooks.JobRef{Name: jobName, Namespace: namespace})
+	jobRef := hooks.JobRef{Name: jobName, Namespace: k8sNamespace}
+	upgradeJobLog := utils.NewSyncBuffer()
+	err = runner.StreamLogs(ctx, jobRef, upgradeJobLog)
 	if err != nil {
-		return "", trace.Wrap(err)
+		return upgradeJobLog.String(), trace.Wrap(err)
 	}
 
-	upgradeJobLog := utils.NewSyncBuffer()
-	err = runner.StreamLogs(ctx, hooks.JobRef{Name: jobName, Namespace: namespace}, upgradeJobLog)
+	job, err := client.BatchV1().Jobs(jobRef.Namespace).Get(jobRef.Name, metav1.GetOptions{})
 	if err != nil {
-		return "", trace.Wrap(err)
+		return upgradeJobLog.String(), trace.Wrap(err)
+	}
+
+	if job.Status.Failed != 0 {
+		return upgradeJobLog.String(), trace.Wrap(errors.New("upgrade job has failed pods"))
 	}
 
 	return upgradeJobLog.String(), nil
