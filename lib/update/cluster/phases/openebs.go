@@ -89,9 +89,8 @@ func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context) error {
 	jobName := utils.MakeJobName(k8sJobPrefix, p.Pool)
 	out, err := execUpgradeJob(ctx, poolUpgradeTemplate, &PoolUpgrade{Pool: p.Pool,
 		FromVersion: p.FromVersion, ToVersion: p.ToVersion, UpgradeJobName: jobName}, jobName, p.Client)
-	if out != "" {
-		p.Infof("OpenEBS pool upgrade job output: %v", out)
-	}
+
+	p.Infof("OpenEBS pool upgrade job output: %v", out)
 
 	if err != nil {
 		return trace.Wrap(err)
@@ -221,9 +220,8 @@ func (p *PhaseUpgradeVolumes) execVolumeUpgradeCmd(ctx context.Context) error {
 	jobName := utils.MakeJobName(k8sJobPrefix, p.Volume)
 	out, err := execUpgradeJob(ctx, volumeUpgradeTemplate, &VolumeUpgrade{Volume: p.Volume,
 		FromVersion: p.FromVersion, ToVersion: p.ToVersion, UpgradeJobName: jobName}, jobName, p.Client)
-	if out != "" {
-		p.Infof("OpenEBS volume upgrade job output: %v", out)
-	}
+
+	p.Infof("OpenEBS volume upgrade job output: %v", out)
 
 	if err != nil {
 		return trace.Wrap(err)
