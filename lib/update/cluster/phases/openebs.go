@@ -95,7 +95,7 @@ func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context) error {
 }
 
 func makeJobName(openEBSComponent string) string {
-	return fmt.Sprintf("cstor-%v-%v", openEBSComponent, uuid.New()[:28])
+	return fmt.Sprintf("cstor-%v-%v", openEBSComponent, uuid.New()[:13])
 }
 
 func (p *PhaseUpgradePool) Rollback(context.Context) error {
