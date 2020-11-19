@@ -289,13 +289,13 @@ func (r phaseBuilder) openEBSDataPlane(ctx context.Context, storageAppVersion st
 	openEBSPhase("volume", vv, updateOpenEBSVolume, storageAppVersion, root)
 
 	// TEMP test phase that wil fail in order to test rollbacks
-	upgradeVolume := update.Phase{
+	phase := update.Phase{
 		ID:          "openebs-upgrade-volume-not_existent_volume",
-		Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", "not_existent_volume 1.1.0"),
+		Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v to %v", "not_existent_volume", "2.2.0"),
 		Executor:    updateOpenEBSVolume,
-		Data:        &storage.OperationPhaseData{Data: "not_existent_volume 1.1.0"},
+		Data:        &storage.OperationPhaseData{Data: "not_existent_volume 1.1.0 2.2.0"},
 	}
-	root.AddSequential(upgradeVolume)
+	root.AddSequential(phase)
 
 	return nil
 }
@@ -309,7 +309,7 @@ func openEBSPhase(phase string, components map[string]string, executor string, s
 
 		phase := update.Phase{
 			ID:          fmt.Sprintf("openebs-%v-%v", phase, k),
-			Description: fmt.Sprintf("Update OpenEBS %v: %v", phase, k),
+			Description: fmt.Sprintf("Update OpenEBS %v: %v to %v", phase, k, toVer),
 			Executor:    executor,
 			Data:        &storage.OperationPhaseData{Data: buildOpenEBSUpgradePhaseData(k, v, toVer)},
 		}
