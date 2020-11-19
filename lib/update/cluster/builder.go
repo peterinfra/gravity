@@ -276,48 +276,19 @@ func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) *update.Phase {
 // openEBSDataPlane checks if existing OpenEBS pools or volumes need to be upgraded
 // and generates upgrade steps
 func (r phaseBuilder) openEBSDataPlane(ctx context.Context, storageAppVersion string, root *update.Phase) error {
-	pv, err := kubectl.GetOpenEBSPoolsVersions(ctx)
+	pv, err := kubectl.OpenEBSPoolsVersions(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
+	openEBSPhase("pool", pv, updateOpenEBSPool, storageAppVersion, root)
 
-	for k, v := range pv {
-		toVer := openEBSDataPlaneComponentToVersion(storageAppVersion, k, v)
-		if toVer == "" {
-			continue
-		}
-
-		upgradeVolume := update.Phase{
-			ID:          fmt.Sprintf("openebs-pool-%v", k),
-			Description: fmt.Sprintf("OpenEBS pool: %v", k),
-			Executor:    updateOpenEBSPool,
-			Data:        &storage.OperationPhaseData{Data: buildOpenEBSUpgradePhaseData(k, v, toVer)},
-		}
-		root.AddSequential(upgradeVolume)
-	}
-
-	vv, err := kubectl.GetOpenEBSVolumesVersions(ctx)
+	vv, err := kubectl.OpenEBSVolumesVersions(ctx)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
-	for k, v := range vv {
-		toVer := openEBSDataPlaneComponentToVersion(storageAppVersion, k, v)
-		if toVer == "" {
-			continue
-		}
-
-		upgradeVolume := update.Phase{
-			ID:          fmt.Sprintf("openebs-volume-%v", k),
-			Description: fmt.Sprintf("OpenEBS volume: %v", k),
-			Executor:    updateOpenEBSVolume,
-			Data:        &storage.OperationPhaseData{Data: buildOpenEBSUpgradePhaseData(k, v, toVer)},
-		}
-		root.AddSequential(upgradeVolume)
-	}
+	openEBSPhase("volume", vv, updateOpenEBSVolume, storageAppVersion, root)
 
 	// TEMP test phase that wil fail in order to test rollbacks
-
 	upgradeVolume := update.Phase{
 		ID:          "openebs-upgrade-volume-not_existent_volume",
 		Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", "not_existent_volume 1.1.0"),
@@ -327,6 +298,23 @@ func (r phaseBuilder) openEBSDataPlane(ctx context.Context, storageAppVersion st
 	root.AddSequential(upgradeVolume)
 
 	return nil
+}
+
+func openEBSPhase(phase string, components map[string]string, executor string, storageAppVersion string, root *update.Phase) {
+	for k, v := range components {
+		toVer := openEBSDataPlaneComponentToVersion(storageAppVersion, k, v)
+		if toVer == "" {
+			continue
+		}
+
+		phase := update.Phase{
+			ID:          fmt.Sprintf("openebs-%v-%v", phase, k),
+			Description: fmt.Sprintf("OpenEBS %v: %v", phase, k),
+			Executor:    executor,
+			Data:        &storage.OperationPhaseData{Data: buildOpenEBSUpgradePhaseData(k, v, toVer)},
+		}
+		root.AddSequential(phase)
+	}
 }
 
 func buildOpenEBSUpgradePhaseData(dataPlaneComponent string, fromVer string, toVer string) string {

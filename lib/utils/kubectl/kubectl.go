@@ -163,8 +163,8 @@ func GetNodesAddr(ctx context.Context) ([]string, error) {
 	return nodes, nil
 }
 
-// GetOpenEBSPoolsVersions retrieves the pool name and version
-func GetOpenEBSPoolsVersions(ctx context.Context) (map[string]string, error) {
+// OpenEBSPoolsVersions retrieves the pool name and version
+func OpenEBSPoolsVersions(ctx context.Context) (map[string]string, error) {
 	args := utils.PlanetCommand(Command("get", "pods",
 		"--field-selector", "status.phase=Running",
 		"--selector", "app=cstor-pool",
@@ -174,8 +174,8 @@ func GetOpenEBSPoolsVersions(ctx context.Context) (map[string]string, error) {
 	return RunCmdMapOutput(ctx, args)
 }
 
-// GetOpenEBSVolumesVersions retrieves the volume name and version
-func GetOpenEBSVolumesVersions(ctx context.Context) (map[string]string, error) {
+// OpenEBSVolumesVersions retrieves the volume name and version
+func OpenEBSVolumesVersions(ctx context.Context) (map[string]string, error) {
 	args := utils.PlanetCommand(Command("get", "pods",
 		"--field-selector", "status.phase=Running",
 		"--selector", `app=cstor-volume-manager,openebs.io/storage-class=openebs-cstor`,
