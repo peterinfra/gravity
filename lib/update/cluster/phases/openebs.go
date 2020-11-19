@@ -80,7 +80,7 @@ type PoolUpgrade struct {
 }
 
 func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context) error {
-	jobName := fmt.Sprintf("cstor-%v-%v", p.Pool, uuid.New()[:28])
+	jobName := makeJobName(p.Pool)
 	out, err := execUpgradeJob(ctx, poolUpgradeTemplate, &PoolUpgrade{Pool: p.Pool,
 		FromVersion: p.FromVersion, ToVersion: p.ToVersion, UpgradeJobName: jobName}, jobName, p.Client)
 	if out != "" {
@@ -92,6 +92,10 @@ func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func makeJobName(openEBSComponent string) string {
+	return fmt.Sprintf("cstor-%v-%v", openEBSComponent, uuid.New()[:28])
 }
 
 func (p *PhaseUpgradePool) Rollback(context.Context) error {
@@ -212,7 +216,7 @@ type VolumeUpgrade struct {
 }
 
 func (p *PhaseUpgradeVolumes) execVolumeUpgradeCmd(ctx context.Context) error {
-	jobName := fmt.Sprintf("cstor-%v-%v", p.Volume, uuid.New()[:28])
+	jobName := makeJobName(p.Volume)
 	out, err := execUpgradeJob(ctx, volumeUpgradeTemplate, &VolumeUpgrade{Volume: p.Volume,
 		FromVersion: p.FromVersion, ToVersion: p.ToVersion, UpgradeJobName: jobName}, jobName, p.Client)
 	if out != "" {
