@@ -37,7 +37,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// Upgrade OpenEBS
+// Upgrade OpenEBS data plane components.
 // Following the upgrade steps from the OpenEBS web site:
 // https://github.com/openebs/openebs/blob/master/k8s/upgrades/README.md
 
@@ -99,6 +99,48 @@ func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context) error {
 	return nil
 }
 
+func execUpgradeJob(ctx context.Context, template *template.Template, templateData interface{}, jobName string, client *kubernetes.Clientset) (string, error) {
+	var buf bytes.Buffer
+	err := template.Execute(&buf, templateData)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
+	upgradeJobFile := "openebs_data_plane_component_upgrade.yaml"
+	err = ioutil.WriteFile(upgradeJobFile, buf.Bytes(), 0644)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
+	out, err := kubectl.Apply(upgradeJobFile)
+	if err != nil {
+		return fmt.Sprintf("Failed to exec kubectl: %v", string(out)), trace.Wrap(err)
+	}
+
+	runner, err := hooks.NewRunner(client)
+	if err != nil {
+		return "", trace.Wrap(err)
+	}
+
+	jobRef := hooks.JobRef{Name: jobName, Namespace: k8sNamespace}
+	upgradeJobLog := utils.NewSyncBuffer()
+	err = runner.StreamLogs(ctx, jobRef, upgradeJobLog)
+	if err != nil {
+		return upgradeJobLog.String(), trace.Wrap(err)
+	}
+
+	job, err := client.BatchV1().Jobs(jobRef.Namespace).Get(jobRef.Name, metav1.GetOptions{})
+	if err != nil {
+		return upgradeJobLog.String(), trace.Wrap(err)
+	}
+
+	if job.Status.Failed != 0 {
+		return upgradeJobLog.String(), trace.Wrap(errors.New("upgrade job has failed pods"))
+	}
+
+	return upgradeJobLog.String(), nil
+}
+
 func (p *PhaseUpgradePool) Rollback(context.Context) error {
 	p.Warnf("Skipping rollback of OpenEBS pool %v because rollback is not supported by OpenEBS"+
 		" for upgrade path: fromVersion=%v -> toVersion=%v ", p.Pool, p.FromVersion, p.ToVersion)
@@ -111,6 +153,74 @@ func (*PhaseUpgradePool) PreCheck(ctx context.Context) error {
 }
 
 func (*PhaseUpgradePool) PostCheck(context.Context) error {
+	return nil
+}
+
+// PhaseUpgradeVolumes upgrades OpenEBS volumes
+type PhaseUpgradeVolumes struct {
+	// FieldLogger is used for logging
+	log.FieldLogger
+	// Client is an API client to the kubernetes API
+	Client      *kubernetes.Clientset
+	Volume      string
+	FromVersion string
+	ToVersion   string
+}
+
+func NewPhaseUpgradeVolume(phase storage.OperationPhase, client *kubernetes.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
+	volAndVer := strings.Split(phase.Data.Data, " ")
+
+	return &PhaseUpgradeVolumes{
+		FieldLogger: logger,
+		Client:      client,
+		Volume:      volAndVer[0],
+		FromVersion: volAndVer[1],
+		ToVersion:   volAndVer[2],
+	}, nil
+}
+
+func (p *PhaseUpgradeVolumes) Execute(ctx context.Context) error {
+	err := p.execVolumeUpgradeCmd(ctx)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
+}
+
+type VolumeUpgrade struct {
+	Volume         string
+	FromVersion    string
+	ToVersion      string
+	UpgradeJobName string
+}
+
+func (p *PhaseUpgradeVolumes) execVolumeUpgradeCmd(ctx context.Context) error {
+	jobName := utils.MakeJobName(k8sJobPrefix, p.Volume)
+	out, err := execUpgradeJob(ctx, volumeUpgradeTemplate, &VolumeUpgrade{Volume: p.Volume,
+		FromVersion: p.FromVersion, ToVersion: p.ToVersion, UpgradeJobName: jobName}, jobName, p.Client)
+
+	p.Infof("OpenEBS volume upgrade job output: %v", out)
+
+	if err != nil {
+		return trace.Wrap(err)
+	}
+
+	return nil
+}
+
+func (p *PhaseUpgradeVolumes) Rollback(context.Context) error {
+	p.Warnf("Skipping rollback of OpenEBS volume %v because rollback is not supported by OpenEBS"+
+		" for upgrade path: fromVersion=%v -> toVersion=%v ", p.Volume, p.FromVersion, p.ToVersion)
+
+	return nil
+}
+
+func (*PhaseUpgradeVolumes) PreCheck(ctx context.Context) error {
+	return nil
+}
+
+func (*PhaseUpgradeVolumes) PostCheck(context.Context) error {
 	return nil
 }
 
@@ -176,102 +286,6 @@ spec:
 ---
 `))
 
-// PhaseUpgradeVolumes backs up etcd data on all servers
-type PhaseUpgradeVolumes struct {
-	// FieldLogger is used for logging
-	log.FieldLogger
-	// Client is an API client to the kubernetes API
-	Client      *kubernetes.Clientset
-	Volume      string
-	FromVersion string
-	ToVersion   string
-}
-
-func NewPhaseUpgradeVolume(phase storage.OperationPhase, client *kubernetes.Clientset, logger log.FieldLogger) (fsm.PhaseExecutor, error) {
-
-	volAndVer := strings.Split(phase.Data.Data, " ")
-
-	return &PhaseUpgradeVolumes{
-		FieldLogger: logger,
-		Client:      client,
-		Volume:      volAndVer[0],
-		FromVersion: volAndVer[1],
-		ToVersion:   volAndVer[2],
-	}, nil
-}
-
-func (p *PhaseUpgradeVolumes) Execute(ctx context.Context) error {
-	err := p.execVolumeUpgradeCmd(ctx)
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	return nil
-}
-
-type VolumeUpgrade struct {
-	Volume         string
-	FromVersion    string
-	ToVersion      string
-	UpgradeJobName string
-}
-
-func (p *PhaseUpgradeVolumes) execVolumeUpgradeCmd(ctx context.Context) error {
-	jobName := utils.MakeJobName(k8sJobPrefix, p.Volume)
-	out, err := execUpgradeJob(ctx, volumeUpgradeTemplate, &VolumeUpgrade{Volume: p.Volume,
-		FromVersion: p.FromVersion, ToVersion: p.ToVersion, UpgradeJobName: jobName}, jobName, p.Client)
-
-	p.Infof("OpenEBS volume upgrade job output: %v", out)
-
-	if err != nil {
-		return trace.Wrap(err)
-	}
-
-	return nil
-}
-
-func execUpgradeJob(ctx context.Context, template *template.Template, templateData interface{}, jobName string, client *kubernetes.Clientset) (string, error) {
-	var buf bytes.Buffer
-	err := template.Execute(&buf, templateData)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-
-	upgradeJobFile := "openebs_data_plane_component_upgrade.yaml"
-	err = ioutil.WriteFile(upgradeJobFile, buf.Bytes(), 0644)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-
-	out, err := kubectl.Apply(upgradeJobFile)
-	if err != nil {
-		return fmt.Sprintf("Failed to exec kubectl: %v", string(out)), trace.Wrap(err)
-	}
-
-	runner, err := hooks.NewRunner(client)
-	if err != nil {
-		return "", trace.Wrap(err)
-	}
-
-	jobRef := hooks.JobRef{Name: jobName, Namespace: k8sNamespace}
-	upgradeJobLog := utils.NewSyncBuffer()
-	err = runner.StreamLogs(ctx, jobRef, upgradeJobLog)
-	if err != nil {
-		return upgradeJobLog.String(), trace.Wrap(err)
-	}
-
-	job, err := client.BatchV1().Jobs(jobRef.Namespace).Get(jobRef.Name, metav1.GetOptions{})
-	if err != nil {
-		return upgradeJobLog.String(), trace.Wrap(err)
-	}
-
-	if job.Status.Failed != 0 {
-		return upgradeJobLog.String(), trace.Wrap(errors.New("upgrade job has failed pods"))
-	}
-
-	return upgradeJobLog.String(), nil
-}
-
 var volumeUpgradeTemplate = template.Must(template.New("upgradeVolumes").Parse(`
 #This is an example YAML for upgrading cstor volume.
 #Some of the values below needs to be changed to
@@ -335,18 +349,3 @@ spec:
       restartPolicy: Never
 ---
 `))
-
-func (p *PhaseUpgradeVolumes) Rollback(context.Context) error {
-	p.Warnf("Skipping rollback of OpenEBS volume %v because rollback is not supported by OpenEBS"+
-		" for upgrade path: fromVersion=%v -> toVersion=%v ", p.Volume, p.FromVersion, p.ToVersion)
-
-	return nil
-}
-
-func (*PhaseUpgradeVolumes) PreCheck(ctx context.Context) error {
-	return nil
-}
-
-func (*PhaseUpgradeVolumes) PostCheck(context.Context) error {
-	return nil
-}

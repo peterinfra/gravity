@@ -32,7 +32,6 @@ import (
 	"github.com/gravitational/gravity/lib/utils/kubectl"
 
 	"github.com/coreos/go-semver/semver"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -275,8 +274,8 @@ func (r phaseBuilder) openEBS(leadMaster storage.UpdateServer) *update.Phase {
 }
 
 // openEBSDataPlaneUpgrade checks if existing OpenEBS pools or volumes need to be upgraded
-// and create upgrade steps
-func (r phaseBuilder) openEBSDataPlaneUpgrade(storageAppVersion string, root *update.Phase) error {
+// and creates upgrade steps
+func (r phaseBuilder) openEBSDataPlane(storageAppVersion string, root *update.Phase) error {
 
 	pv, err := kubectl.GetOpenEBSPoolsVersions(context.TODO())
 	if err != nil {
@@ -302,7 +301,7 @@ func (r phaseBuilder) openEBSDataPlaneUpgrade(storageAppVersion string, root *up
 	if err != nil {
 		return trace.Wrap(err)
 	}
-	spew.Dump(vv)
+
 	for k, v := range vv {
 		toVer := openEBSDataPlaneComponentToVersion(storageAppVersion, k, v)
 		if toVer == "" {
@@ -319,15 +318,15 @@ func (r phaseBuilder) openEBSDataPlaneUpgrade(storageAppVersion string, root *up
 	}
 
 	// TEMP test phase that wil fail in order to test rollbacks
-	/*
-		upgradeVolume := update.Phase{
-			ID:          "openebs-upgrade-volume-not_existent_volume",
-			Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", "not_existent_volume 1.1.0"),
-			Executor:    updateOpenEBSVolume,
-			Data:        &storage.OperationPhaseData{Data: "not_existent_volume 1.1.0"},
-		}
-		root.AddSequential(upgradeVolume)
-	*/
+
+	upgradeVolume := update.Phase{
+		ID:          "openebs-upgrade-volume-not_existent_volume",
+		Description: fmt.Sprintf("Upgrade OpenEBS cStor volume: %v", "not_existent_volume 1.1.0"),
+		Executor:    updateOpenEBSVolume,
+		Data:        &storage.OperationPhaseData{Data: "not_existent_volume 1.1.0"},
+	}
+	root.AddSequential(upgradeVolume)
+
 	return nil
 }
 
@@ -336,7 +335,6 @@ func buildOpenEBSUpgradePhaseData(dataPlaneComponent string, fromVer string, toV
 }
 
 func openEBSDataPlaneComponentToVersion(storageAppVersion string, openEBSComponentName string, openEBSComponentFromVersion string) string {
-	spew.Dump(storageAppVersion, openEBSComponentName, openEBSComponentFromVersion)
 	if storageAppVersion == "0.0.4" {
 		correspondingOpenEBSDataPlaneComponentVer := "2.2.0"
 

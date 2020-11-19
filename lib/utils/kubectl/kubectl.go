@@ -82,6 +82,7 @@ func RunCommand(cmd *Cmd, options ...optionSetter) ([]byte, error) {
 	return exec.Command(cmd.command, cmd.args...).CombinedOutput()
 }
 
+// Apply invokes kubectl apply
 func Apply(fileName string) ([]byte, error) {
 	cmd := Command("apply", "-f", fileName)
 
