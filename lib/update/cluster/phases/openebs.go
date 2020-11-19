@@ -30,7 +30,6 @@ import (
 	"github.com/gravitational/gravity/lib/utils/kubectl"
 
 	"github.com/gravitational/trace"
-	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"k8s.io/client-go/kubernetes"
@@ -39,6 +38,10 @@ import (
 // Upgrade OpenEBS
 // Following the upgrade steps from the OpenEBS web site:
 // https://github.com/openebs/openebs/blob/master/k8s/upgrades/README.md
+
+const (
+	k8sJobPrefix = "cstor"
+)
 
 // PhaseUpgradePool backs up etcd data on all servers
 type PhaseUpgradePool struct {
@@ -80,7 +83,7 @@ type PoolUpgrade struct {
 }
 
 func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context) error {
-	jobName := makeJobName(p.Pool)
+	jobName := utils.MakeJobName(k8sJobPrefix, p.Pool)
 	out, err := execUpgradeJob(ctx, poolUpgradeTemplate, &PoolUpgrade{Pool: p.Pool,
 		FromVersion: p.FromVersion, ToVersion: p.ToVersion, UpgradeJobName: jobName}, jobName, p.Client)
 	if out != "" {
@@ -92,10 +95,6 @@ func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context) error {
 	}
 
 	return nil
-}
-
-func makeJobName(openEBSComponent string) string {
-	return fmt.Sprintf("cstor-%v-%v", openEBSComponent, uuid.New()[:13])
 }
 
 func (p *PhaseUpgradePool) Rollback(context.Context) error {
@@ -216,7 +215,7 @@ type VolumeUpgrade struct {
 }
 
 func (p *PhaseUpgradeVolumes) execVolumeUpgradeCmd(ctx context.Context) error {
-	jobName := makeJobName(p.Volume)
+	jobName := utils.MakeJobName(k8sJobPrefix, p.Volume)
 	out, err := execUpgradeJob(ctx, volumeUpgradeTemplate, &VolumeUpgrade{Volume: p.Volume,
 		FromVersion: p.FromVersion, ToVersion: p.ToVersion, UpgradeJobName: jobName}, jobName, p.Client)
 	if out != "" {

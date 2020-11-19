@@ -30,7 +30,6 @@ import (
 	"github.com/gravitational/gravity/lib/utils"
 	"github.com/gravitational/trace"
 
-	"github.com/davecgh/go-spew/spew"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -163,62 +162,52 @@ func GetNodesAddr(ctx context.Context) ([]string, error) {
 	return nodes, nil
 }
 
-// GetOpenEBSPoolsVersions returns internal IP addresses of all nodes in the cluster
+// GetOpenEBSPoolsVersions retrieves the pool name and version
 func GetOpenEBSPoolsVersions(ctx context.Context) (map[string]string, error) {
-	//sudo kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-pool  -nopenebs -o  jsonpath='{range .items[*]}{.metadata.labels.openebs\.io/storage-pool-claim}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}'
 	args := utils.PlanetCommand(Command("get", "pods",
 		"--field-selector", "status.phase=Running",
 		"--selector", "app=cstor-pool",
 		"-nopenebs",
 		"-o", `jsonpath={range .items[*]}{.metadata.labels.openebs\.io/storage-pool-claim}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}`))
 
-	return getKubectlOutput(ctx, args)
+	return RunCmdMapOutput(ctx, args)
 }
 
-// GetOpenEBSPoolsVersions returns internal IP addresses of all nodes in the cluster
+// GetOpenEBSVolumesVersions retrieves the volume name and version
 func GetOpenEBSVolumesVersions(ctx context.Context) (map[string]string, error) {
-	// sudo kubectl get pods --field-selector=status.phase=Running  --selector=app=cstor-volume-manager,openebs\.io/storage-class=openebs-cstor  -nopenebs -o  jsonpath='{range .items[*]}{.metadata.labels.openebs\.io/persistent-volume}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}'
-	//		"--selector", `app=cstor-volume-manager,openebs.io/storage-class=openebs-cstor`,
-	// !!! WORKS -> 		"--selector", `openebs.io/storage-class=openebs-cstor`,
 	args := utils.PlanetCommand(Command("get", "pods",
 		"--field-selector", "status.phase=Running",
 		"--selector", `app=cstor-volume-manager,openebs.io/storage-class=openebs-cstor`,
 		"-nopenebs",
 		"-o", `jsonpath={range .items[*]}{.metadata.labels.openebs\.io/persistent-volume}{" "}{.metadata.labels.openebs\.io/version}{"\n"}{end}`))
 
-	return getKubectlOutput(ctx, args)
+	return RunCmdMapOutput(ctx, args)
 }
 
-// TODO make generic
-// getKubectlOutput
-// expects a kubectl command that returns one ro more lines of key values
-func getKubectlOutput(ctx context.Context, args []string) (map[string]string, error) {
-	spew.Dump(args)
+// RunCmdMapOutput executes a kubectl command with parameters and produces a key-value output.
+// Expects that the passed in command will generate a 2 column output separated by spaces.
+// The columns of the output lines will be returned as key-value entries in a map.
+func RunCmdMapOutput(ctx context.Context, args []string) (map[string]string, error) {
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 
-	cmd.Stderr = utils.NewStderrLogger(log.WithField("cmd", "kubectl get pods"))
+	cmd.Stderr = utils.NewStderrLogger(log.WithField("cmd", "kubectl run cmd"))
 
 	out, err := cmd.Output()
 	if err != nil {
 		return nil, trace.Wrap(err, "%v : %v", cmd, err)
 	}
 
-	poolsAndVersions := strings.Split(string(out), "\n")
-	spew.Dump(poolsAndVersions)
-
-	// TODO remove duplication
-	poolAndVersion := make(map[string]string)
-	for _, poolAndVer := range poolsAndVersions {
-		pav := strings.Split(poolAndVer, " ")
-		if len(pav) != 2 {
+	ret := make(map[string]string)
+	for _, keyAndVal := range strings.Split(string(out), "\n") {
+		kav := strings.Split(keyAndVal, " ")
+		if len(kav) != 2 {
 			continue
 		}
 
-		poolAndVersion[pav[0]] = pav[1]
+		ret[kav[0]] = kav[1]
 	}
 
-	spew.Dump(poolAndVersion)
-	return poolAndVersion, nil
+	return ret, nil
 }
 
 // WithPrivilegedConfig returns a command option to specify a privileged kubeconfig

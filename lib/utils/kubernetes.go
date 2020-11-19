@@ -26,6 +26,7 @@ import (
 
 	"github.com/gravitational/rigging"
 	"github.com/gravitational/trace"
+	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -252,4 +253,17 @@ func getLabelNamespace(key string) string {
 		return parts[0]
 	}
 	return ""
+}
+
+// MakeJobName generates unique job name.
+// k8s job names must be no more than 63 characters.
+// Expects that the prefix param will not be longer that 5 characters.
+// The name param will be truncated if longer than 40 characters.
+func MakeJobName(prefix string, name string) string {
+	maxNameLen := 40
+	if len(name) > maxNameLen {
+		name = name[:maxNameLen]
+	}
+
+	return fmt.Sprintf("%v-%v-%v", prefix, name, uuid.New()[:13])
 }
