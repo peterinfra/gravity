@@ -309,7 +309,7 @@ func openEBSPhase(phase string, components map[string]string, executor string, s
 
 		phase := update.Phase{
 			ID:          fmt.Sprintf("openebs-%v-%v", phase, k),
-			Description: fmt.Sprintf("OpenEBS %v: %v", phase, k),
+			Description: fmt.Sprintf("Update OpenEBS %v: %v", phase, k),
 			Executor:    executor,
 			Data:        &storage.OperationPhaseData{Data: buildOpenEBSUpgradePhaseData(k, v, toVer)},
 		}

@@ -89,7 +89,7 @@ type PoolUpgrade struct {
 
 func (p *PhaseUpgradePool) execPoolUpgradeCmd(ctx context.Context) error {
 	jobName := utils.MakeJobName(k8sJobPrefix, p.Pool)
-	out, err := execUpgradeJob(ctx, poolUpgradeTemplate, &PoolUpgrade{Pool: p.Pool,
+	out, err := execUpgradeJob(ctx, poolUpgradeJobTemplate, &PoolUpgrade{Pool: p.Pool,
 		FromVersion: p.FromVersion, ToVersion: p.ToVersion, JobName: jobName}, jobName, p.Client)
 
 	p.Infof("OpenEBS pool upgrade job output: %v", out)
@@ -108,13 +108,13 @@ func execUpgradeJob(ctx context.Context, template *template.Template, templateDa
 		return "", trace.Wrap(err)
 	}
 
-	upgradeJobFile := "openebs_data_plane_component_upgrade.yaml"
-	err = ioutil.WriteFile(upgradeJobFile, buf.Bytes(), 0644)
+	jobFile := "openebs_data_plane_component_upgrade.yaml"
+	err = ioutil.WriteFile(jobFile, buf.Bytes(), 0644)
 	if err != nil {
 		return "", trace.Wrap(err)
 	}
 
-	out, err := kubectl.Apply(upgradeJobFile)
+	out, err := kubectl.Apply(jobFile)
 	if err != nil {
 		return fmt.Sprintf("Failed to exec kubectl: %v", string(out)), trace.Wrap(err)
 	}
@@ -125,22 +125,22 @@ func execUpgradeJob(ctx context.Context, template *template.Template, templateDa
 	}
 
 	jobRef := hooks.JobRef{Name: jobName, Namespace: k8sNamespace}
-	upgradeJobLog := utils.NewSyncBuffer()
-	err = runner.StreamLogs(ctx, jobRef, upgradeJobLog)
+	logs := utils.NewSyncBuffer()
+	err = runner.StreamLogs(ctx, jobRef, logs)
 	if err != nil {
-		return upgradeJobLog.String(), trace.Wrap(err)
+		return logs.String(), trace.Wrap(err)
 	}
 
 	job, err := client.BatchV1().Jobs(jobRef.Namespace).Get(jobRef.Name, metav1.GetOptions{})
 	if err != nil {
-		return upgradeJobLog.String(), trace.Wrap(err)
+		return logs.String(), trace.Wrap(err)
 	}
 
 	if job.Status.Failed != 0 {
-		return upgradeJobLog.String(), trace.Wrap(errors.New("upgrade job has failed pods"))
+		return logs.String(), trace.Wrap(errors.New("upgrade job has failed pods"))
 	}
 
-	return upgradeJobLog.String(), nil
+	return logs.String(), nil
 }
 
 // Rollback gets executed when a rollback is requested
@@ -208,7 +208,7 @@ type VolumeUpgrade struct {
 
 func (p *PhaseUpgradeVolume) execVolumeUpgradeCmd(ctx context.Context) error {
 	jobName := utils.MakeJobName(k8sJobPrefix, p.Volume)
-	out, err := execUpgradeJob(ctx, volumeUpgradeTemplate, &VolumeUpgrade{Volume: p.Volume,
+	out, err := execUpgradeJob(ctx, volumeUpgradeJobTemplate, &VolumeUpgrade{Volume: p.Volume,
 		FromVersion: p.FromVersion, ToVersion: p.ToVersion, JobName: jobName}, jobName, p.Client)
 
 	p.Infof("OpenEBS volume upgrade job output: %v", out)
@@ -239,7 +239,7 @@ func (*PhaseUpgradeVolume) PostCheck(context.Context) error {
 
 // The upgrade jobs are taken from the following OpenEBS upgrade procedure:
 // https://github.com/openebs/openebs/blob/master/k8s/upgrades/README.md
-var poolUpgradeTemplate = template.Must(template.New("upgradePool").Parse(`
+var poolUpgradeJobTemplate = template.Must(template.New("upgradePool").Parse(`
 #This is an example YAML for upgrading cstor SPC.
 #Some of the values below needs to be changed to
 #match your openebs installation. The fields are
@@ -299,7 +299,7 @@ spec:
 ---
 `))
 
-var volumeUpgradeTemplate = template.Must(template.New("upgradeVolumes").Parse(`
+var volumeUpgradeJobTemplate = template.Must(template.New("upgradeVolumes").Parse(`
 #This is an example YAML for upgrading cstor volume.
 #Some of the values below needs to be changed to
 #match your openebs installation. The fields are
